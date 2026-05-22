@@ -229,6 +229,7 @@ Main_Window::Main_Window( QWidget *parent )
     // Signals for watching VM changes
     Connect_Signals();
     block_VM_changed_signals = false;
+    pending_vm_start.clear();
 }
 
 void Main_Window::init_dbus()
@@ -281,6 +282,9 @@ void Main_Window::VM_State_Changed(const QString &vm, int state)
     {
         if ( QFileInfo(vm) == QFileInfo(VM_List.at(i)->Get_VM_XML_File_Path()) )
         {
+            if ( !pending_vm_start.isEmpty() && QFileInfo(vm) == QFileInfo(pending_vm_start) )
+                pending_vm_start.clear();
+
             VM_List.at(i)->Set_State( static_cast<VM::VM_State>(state) ); //FIXME
             AQError("void Main_Window::VM_State_Changed(const QString &vm, int state)",VM_List.at(i)->Get_State_Text());
             break;
@@ -1974,6 +1978,13 @@ void Main_Window::VM_State_Changed( Virtual_Machine *vm, VM::VM_State s )
 		return;
 	}
 
+    if ( !pending_vm_start.isEmpty() &&
+         ( QFileInfo(vm->Get_VM_XML_File_Path()) == QFileInfo(pending_vm_start) ||
+           vm->Get_Machine_Name() == pending_vm_start ) )
+    {
+        pending_vm_start.clear();
+    }
+
 	// This is current VM?
 	if( *vm == *cur_vm )
 	{
@@ -3299,11 +3310,32 @@ void Main_Window::on_actionPower_On_triggered()
         return;
 
     Virtual_Machine *cur_vm = Get_Current_VM();
+    if ( cur_vm == NULL )
+        return;
 
 	if( ! Boot_Is_Correct(cur_vm) ) return;
 
+    if ( !pending_vm_start.isEmpty() &&
+         ( QFileInfo(cur_vm->Get_VM_XML_File_Path()) == QFileInfo(pending_vm_start) ||
+           cur_vm->Get_Machine_Name() == pending_vm_start ) )
+    {
+        return;
+    }
+
+    pending_vm_start = cur_vm->Get_VM_XML_File_Path();
+    if ( pending_vm_start.isEmpty() )
+        pending_vm_start = cur_vm->Get_Machine_Name();
+
+    ui.actionPower_On->setEnabled( false );
+
     if( ! AQEMU_Service::get().call( "start" , cur_vm ) )
+    {
+        pending_vm_start.clear();
+        if( cur_vm->Get_State() == VM::VMS_Power_Off || cur_vm->Get_State() == VM::VMS_Saved )
+            ui.actionPower_On->setEnabled( true );
+
         AQError( "void Main_Window::on_action_Power_On_triggered()", "Cannot Start VM!" );
+    }
 }
 
 void Main_Window::on_actionSave_triggered()

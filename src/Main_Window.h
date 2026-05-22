@@ -284,6 +284,7 @@ class Main_Window: public QMainWindow
         SPICE_Settings_Widget* SPICE_Widget;
 
         bool block_VM_changed_signals;
+        QString pending_vm_start;
 };
 
 #endif
