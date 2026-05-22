@@ -260,6 +260,35 @@ QString AQEMU_Service::start(const QString& s)
         return QString("VM \"%1\" is already running or starting.").arg(vm_name);
     }
 
+    // Assign a unique Embedded_Display_Port so each running service VM gets its own
+    // TCP monitor port (base 6000 + offset). This prevents port conflicts when
+    // multiple VMs are running concurrently.
+    {
+        int port_offset = 0;
+        const int max_port_offset = 1000; // sanity upper bound
+        for( ; port_offset < max_port_offset; port_offset++ )
+        {
+            bool in_use = false;
+            for( int i = 0; i < machines.count(); i++ )
+            {
+                if( machines.at(i)->Get_Embedded_Display_Port() == port_offset )
+                {
+                    in_use = true;
+                    break;
+                }
+            }
+            if( !in_use ) break;
+        }
+        if( port_offset >= max_port_offset )
+        {
+            AQError("QString AQEMU_Service::start(const QString& s)",
+                    "Could not find a free TCP monitor port offset for new VM.");
+            delete vm;
+            return QString("VM \"%1\" could not be started: no free monitor port available.").arg(s);
+        }
+        vm->Set_Embedded_Display_Port( port_offset );
+    }
+
     if ( vm->Start() )
     {
         machines.append(vm);

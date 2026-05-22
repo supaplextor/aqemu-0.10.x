@@ -264,7 +264,21 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 
 Virtual_Machine::~Virtual_Machine()
 {
-	if( QEMU_Process != NULL ) delete QEMU_Process;
+	if( QEMU_Process != NULL )
+	{
+		if( QEMU_Process->state() != QProcess::NotRunning )
+		{
+			// Process is still running; detach it so QEMU keeps running after AQEMU exits.
+			// Do NOT kill it - the user expects VMs to keep running when AQEMU closes.
+			disconnect( QEMU_Process, nullptr, this, nullptr );
+			QEMU_Process->setParent( nullptr );
+			QEMU_Process = nullptr; // intentionally leak - process must outlive AQEMU
+		}
+		else
+		{
+			delete QEMU_Process;
+		}
+	}
 	if( Emu_Ctl != NULL ) delete Emu_Ctl;
 	
 	Boot_Order_List.clear();
@@ -5246,8 +5260,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 	Monitor_Hostname = Settings.value("Emulator_Monitor_Hostname", "localhost").toString();
 	Monitor_Port = (unsigned int)Settings.value("Emulator_MonGitor_Port", 6000).toInt() + Embedded_Display_Port;
+	Use_Monitor_TCP = true;
 	#else
-	if( Settings.value("Emulator_Monitor_Type", "stdio").toString() == "tcp" )
+	if( Settings.value("Emulator_Monitor_Type", "tcp").toString() == "tcp" )
 	{
 		Args << "-monitor" << QString("tcp:%1:%2,server,nowait")
 							  .arg(Settings.value("Emulator_Monitor_Hostname", "localhost").toString() )
@@ -5255,6 +5270,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 		Monitor_Hostname = Settings.value("Emulator_Monitor_Hostname", "localhost").toString();
 		Monitor_Port = (unsigned int)Settings.value("Emulator_MonGitor_Port", 6000).toInt() + Embedded_Display_Port;
+		Use_Monitor_TCP = true;
 	}
 	else
 	{
@@ -9071,8 +9087,15 @@ void Virtual_Machine::Parse_StdOut()
 	if( Use_Monitor_TCP == false )
 		convOutput = QEMU_Process->readAllStandardOutput();
 	else
-	#endif
+	{
+		// In TCP monitor mode, QEMU stdout is not the monitor; drain it to prevent
+		// pipe buffer overflow, then read the actual monitor data from the TCP socket.
+		QEMU_Process->readAllStandardOutput();
 		convOutput = Monitor_Socket->readAll();
+	}
+	#else
+		convOutput = Monitor_Socket->readAll();
+	#endif
 
     // For whatever reason qemu doesn't write all errors to stderr,
     // which means we unfortunately need to filter output to stdout
