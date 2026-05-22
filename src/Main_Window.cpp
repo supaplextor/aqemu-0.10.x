@@ -3310,7 +3310,7 @@ void Main_Window::on_actionPower_On_triggered()
         return;
 
     Virtual_Machine *cur_vm = Get_Current_VM();
-    if ( cur_vm == NULL )
+    if ( cur_vm == nullptr )
         return;
 
 	if( ! Boot_Is_Correct(cur_vm) ) return;
@@ -3319,6 +3319,7 @@ void Main_Window::on_actionPower_On_triggered()
          ( QFileInfo(cur_vm->Get_VM_XML_File_Path()) == QFileInfo(pending_vm_start) ||
            cur_vm->Get_Machine_Name() == pending_vm_start ) )
     {
+        // Prevent duplicate start requests for the same VM while launch is pending.
         return;
     }
 

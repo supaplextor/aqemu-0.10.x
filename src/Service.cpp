@@ -230,9 +230,6 @@ bool AQEMU_Service::init_service()
 
 QString AQEMU_Service::start(const QString& s)
 {
-    if( getMachine(s) )
-        return QString("VM \"%1\" is already running or starting.").arg(s);
-
     QSettings settings;
     QString vm_dir = QDir::toNativeSeparators(settings.value("VM_Directory", QDir::homePath() + "/.aqemu/").toString());
     QString vm_file = vm_dir+s+".aqemu";
