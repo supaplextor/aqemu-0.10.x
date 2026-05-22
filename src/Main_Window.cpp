@@ -23,6 +23,8 @@
 
 #include <QFileDialog>
 #include <QMessageBox>
+#include <QCheckBox>
+#include <QSettings>
 #include <QInputDialog>
 #include <QTextFrame>
 #include <QTextTableCell>
@@ -298,33 +300,43 @@ void Main_Window::closeEvent( QCloseEvent *event )
 		AQGraphic_Error( "void Main_Window::closeEvent( QCloseEvent *event )",
 						 tr("AQEMU"), tr("Could not save main window settings!"), false );
 
-    /*// Find running VM
-	for( int vx = 0; vx < VM_List.count(); ++vx )
-	{
-		if( VM_List[vx]->Get_State() == VM::VMS_Running ||
-			VM_List[vx]->Get_State() == VM::VMS_Pause )
-		{
-			int mes_res = QMessageBox::question( this, tr("Close AQEMU?"),
-												 tr("One or more VMs are running!\nTerminate all running VMs and close AQEMU?"),
-												 QMessageBox::Yes | QMessageBox::No, QMessageBox::No );
+    // Check for running VMs
+    bool vms_running = false;
+    for( int vx = 0; vx < VM_List.count(); ++vx )
+    {
+        VM::VM_State state = VM_List[vx]->Get_State();
+        if( state == VM::VMS_Running || state == VM::VMS_Pause )
+        {
+            vms_running = true;
+            break;
+        }
+    }
 
-			if( mes_res != QMessageBox::Yes )
-			{
-				event->ignore();
-				return;
-			}
+    if( vms_running )
+    {
+        QSettings settings;
+        if( settings.value("Notify_Background_On_Close", true).toBool() )
+        {
+            QMessageBox msgBox( this );
+            msgBox.setWindowTitle( tr("VMs Still Running") );
+            msgBox.setText( tr("One or more virtual machines are still running.") );
+            msgBox.setInformativeText( tr("AQEMU will continue running in the background to manage them.\n"
+                                         "Use the command line (aqemu stop <name>) or the Emulator Control Window to stop a VM.") );
+            msgBox.setStandardButtons( QMessageBox::Ok | QMessageBox::Cancel );
+            msgBox.setDefaultButton( QMessageBox::Ok );
+            msgBox.setCheckBox( new QCheckBox( tr("Do not show this message again"), &msgBox ) );
 
-			break;
-		}
-	}
+            int res = msgBox.exec();
+            if( msgBox.checkBox()->isChecked() )
+                settings.setValue( "Notify_Background_On_Close", false );
 
-	// Close All Emu_Ctl and QEMU_Error_Log Windows
-	for( int ex = 0; ex < VM_List.count(); ++ex )
-	{
-		VM_List[ ex ]->Hide_Emu_Ctl_Win();
-		VM_List[ ex ]->Hide_QEMU_Error_Log();
-		VM_List[ ex ]->Stop();
-    }*/
+            if( res == QMessageBox::Cancel )
+            {
+                event->ignore();
+                return;
+            }
+        }
+    }
 
     if ( ! Save_Or_Discard() )
         event->ignore();

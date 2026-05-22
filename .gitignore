@@ -1,0 +1,7 @@
+build/
+*.o
+*.a
+*.so
+moc_*
+ui_*
+qrc_*
