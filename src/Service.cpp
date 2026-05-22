@@ -247,7 +247,17 @@ QString AQEMU_Service::start(const QString& s)
         if(QFileInfo(vm_file).exists())
             vm->Load_VM(vm_file);
         else
+        {
+            delete vm;
             return QString("VM \"%1\" could not be started. No such VM found.").arg(s);
+        }
+    }
+
+    if( getMachine(vm->Get_VM_XML_File_Path()) || getMachine(vm->Get_Machine_Name()) )
+    {
+        QString vm_name = vm->Get_Machine_Name().isEmpty() ? s : vm->Get_Machine_Name();
+        delete vm;
+        return QString("VM \"%1\" is already running or starting.").arg(vm_name);
     }
 
     if ( vm->Start() )
@@ -260,6 +270,7 @@ QString AQEMU_Service::start(const QString& s)
         return QString("VM \"%1\" got started.").arg(s);
     }
 
+    delete vm;
     return QString("VM \"%1\" could not be started.").arg(s);
 }
 
