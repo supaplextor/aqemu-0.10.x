@@ -202,6 +202,7 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	this->bzImage_Path = vm.Get_bzImage_Path();
 	this->Initrd_Path = vm.Get_Initrd_Path();
 	this->Kernel_ComLine = vm.Get_Kernel_ComLine();
+	this->Pre_Exec_Command = vm.Get_Pre_Exec_Command();
 	
 	this->Additional_Args = vm.Get_Additional_Args();
 	this->Only_User_Args = vm.Get_Only_User_Args();
@@ -408,6 +409,7 @@ void Virtual_Machine::Shared_Constructor()
 	bzImage_Path = "";
 	Initrd_Path = "";
 	Kernel_ComLine = "";
+	Pre_Exec_Command = "";
 	
 	Additional_Args = "";
 	Only_User_Args = false;
@@ -512,6 +514,7 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->bzImage_Path == vm.Get_bzImage_Path() &&
 		this->Initrd_Path == vm.Get_Initrd_Path() &&
 		this->Kernel_ComLine == vm.Get_Kernel_ComLine() &&
+		this->Pre_Exec_Command == vm.Get_Pre_Exec_Command() &&
 		this->Additional_Args == vm.Get_Additional_Args() &&
 		this->Only_User_Args == vm.Get_Only_User_Args() &&
 		this->Use_User_Emulator_Binary == vm.Get_Use_User_Emulator_Binary() &&
@@ -785,6 +788,7 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	this->bzImage_Path = vm.Get_bzImage_Path();
 	this->Initrd_Path = vm.Get_Initrd_Path();
 	this->Kernel_ComLine = vm.Get_Kernel_ComLine();
+	this->Pre_Exec_Command = vm.Get_Pre_Exec_Command();
 	
 	this->Additional_Args = vm.Get_Additional_Args();
 	this->Only_User_Args = vm.Get_Only_User_Args();
@@ -2922,7 +2926,12 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	Dom_Text = New_Dom_Document.createTextNode( PFlash_File );
 	Dom_Element.appendChild( Dom_Text );
 	
-	// Additional Arguments
+	// Pre-Exec Command and Additional Arguments
+	Dom_Element = New_Dom_Document.createElement( "Pre_Exec_Command" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( Pre_Exec_Command );
+	Dom_Element.appendChild( Dom_Text );
+
 	Dom_Element = New_Dom_Document.createElement( "Additional_Args" );
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( Additional_Args );
@@ -4765,7 +4774,8 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 			// VNC x509verify Folder Path
 			VNC_x509verify_Folder_Path = Child_Element.firstChildElement( "VNC_x509verify_Folder_Path" ).text();
 			
-			// Additional Arguments
+			// Pre-Exec Command and Additional Arguments
+			Pre_Exec_Command = Child_Element.firstChildElement( "Pre_Exec_Command" ).text();
 			Additional_Args = Child_Element.firstChildElement( "Additional_Args" ).text();
 			
 			// Only_User_Args
@@ -7257,6 +7267,28 @@ bool Virtual_Machine::Start_impl()
         QEMU_Process->setEnvironment( tmp_env );
     }
 
+    if( ! Pre_Exec_Command.isEmpty() )
+    {
+        QStringList pre_exec_args;
+        bool started = false;
+
+        #ifdef Q_OS_WIN32
+            pre_exec_args << "/C" << Pre_Exec_Command;
+            started = QProcess::startDetached( "cmd", pre_exec_args );
+        #else
+            pre_exec_args << "-c" << Pre_Exec_Command;
+            started = QProcess::startDetached( "/bin/sh", pre_exec_args );
+        #endif
+
+        if( ! started )
+        {
+            AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
+                             tr("Failed to start pre-launch shell command:\n%1").arg(Pre_Exec_Command), false );
+            Start_Snapshot_Tag = "";
+            return false;
+        }
+    }
+
     // User Args Only
     if( Use_User_Emulator_Binary && Only_User_Args )
     {
@@ -7998,6 +8030,16 @@ void Virtual_Machine::Set_Video_Card( const QString &card )
 const QString &Virtual_Machine::Get_Additional_Args() const
 {
 	return Additional_Args;
+}
+
+const QString &Virtual_Machine::Get_Pre_Exec_Command() const
+{
+	return Pre_Exec_Command;
+}
+
+void Virtual_Machine::Set_Pre_Exec_Command( const QString &cmd )
+{
+	Pre_Exec_Command = cmd;
 }
 
 void Virtual_Machine::Set_Additional_Args( const QString &aa )

@@ -309,6 +309,9 @@ class Virtual_Machine: public QObject
 		const QString &Get_Kernel_ComLine() const;
 		void Set_Kernel_ComLine( const QString &cl );
 		
+		const QString &Get_Pre_Exec_Command() const;
+		void Set_Pre_Exec_Command( const QString &cmd );
+
 		const QString &Get_Additional_Args() const;
 		void Set_Additional_Args( const QString &aa );
 		
@@ -566,6 +569,7 @@ class Virtual_Machine: public QObject
 		QString bzImage_Path;
 		QString Initrd_Path;
 		QString Kernel_ComLine;
+		QString Pre_Exec_Command;
 		
 		QString Additional_Args; // user arguments
 		bool Only_User_Args;
