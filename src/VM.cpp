@@ -5728,7 +5728,38 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		int onceBootDeviceIndex = -1;
 		for( int ix = 0; ix < Boot_Order_List.count(); ix++ )
 		{
-			if( Boot_Order_List[ix].Enabled )
+			bool boot_device_available = false;
+
+			switch( Boot_Order_List[ix].Type )
+			{
+				case VM::Boot_From_FDA:
+					boot_device_available = FD0.Get_Enabled();
+					break;
+
+				case VM::Boot_From_FDB:
+					boot_device_available = FD1.Get_Enabled();
+					break;
+
+				case VM::Boot_From_HDD:
+					boot_device_available = HDA.Get_Enabled();
+					break;
+
+				case VM::Boot_From_CDROM:
+					boot_device_available = CD_ROM.Get_Enabled();
+					break;
+
+				case VM::Boot_From_Network1:
+				case VM::Boot_From_Network2:
+				case VM::Boot_From_Network3:
+				case VM::Boot_From_Network4:
+					boot_device_available = Use_Network;
+					break;
+
+				default:
+					break;
+			}
+
+			if( Boot_Order_List[ix].Enabled && boot_device_available )
 			{
 				bootDevCount++;
 				onceBootDeviceIndex = ix;
@@ -7344,6 +7375,11 @@ bool Virtual_Machine::Start()
     }
 
     return false;
+}
+
+bool Virtual_Machine::Start_Direct()
+{
+	return Start();
 }
 
 void Virtual_Machine::Pause()

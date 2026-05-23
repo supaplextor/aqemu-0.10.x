@@ -2802,37 +2802,55 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 
 	// Boot is correct?
 	QList<VM::Boot_Order> bootOrderList = tmp_vm->Get_Boot_Order_List();
-	bool foundEnabledDevice = false;
+	bool foundValidBootDevice = false;
 
 	for( int bx = 0; bx < bootOrderList.count(); bx++ )
 	{
 		if( bootOrderList[bx].Enabled )
 		{
-			foundEnabledDevice = true;
-
 			switch( bootOrderList[bx].Type )
 			{
 				case VM::Boot_From_FDA:
-					if( tmp_vm->Get_FD0().Get_Enabled() ) return true;
+					if( tmp_vm->Get_FD0().Get_Enabled() )
+					{
+						foundValidBootDevice = true;
+						return true;
+					}
 					break;
 
 				case VM::Boot_From_FDB:
-					if( tmp_vm->Get_FD1().Get_Enabled() ) return true;
+					if( tmp_vm->Get_FD1().Get_Enabled() )
+					{
+						foundValidBootDevice = true;
+						return true;
+					}
 					break;
 
 				case VM::Boot_From_CDROM:
-					if( tmp_vm->Get_CD_ROM().Get_Enabled() ) return true;
+					if( tmp_vm->Get_CD_ROM().Get_Enabled() )
+					{
+						foundValidBootDevice = true;
+						return true;
+					}
 					break;
 
 				case VM::Boot_From_HDD:
-					if( tmp_vm->Get_HDA().Get_Enabled() ) return true;
+					if( tmp_vm->Get_HDA().Get_Enabled() )
+					{
+						foundValidBootDevice = true;
+						return true;
+					}
 					break;
 
 				case VM::Boot_From_Network1:
 				case VM::Boot_From_Network2:
 				case VM::Boot_From_Network3:
 				case VM::Boot_From_Network4:
-					if( tmp_vm->Get_Use_Network() ) return true;
+					if( tmp_vm->Get_Use_Network() )
+					{
+						foundValidBootDevice = true;
+						return true;
+					}
 					break;
 
 				default:
@@ -2841,7 +2859,7 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 		}
 	}
 
-	if( foundEnabledDevice )
+	if( foundValidBootDevice )
 	{
 		//AQGraphic_Warning( tr("Error!"), tr("No boot device found!") );
         No_Boot_Device(this).exec();
@@ -3343,12 +3361,18 @@ void Main_Window::on_actionPower_On_triggered()
 
     if( ! AQEMU_Service::get().call( "start" , cur_vm ) )
     {
-        pending_vm_start.clear();
-        if( cur_vm->Get_State() == VM::VMS_Power_Off || cur_vm->Get_State() == VM::VMS_Saved )
-            ui.actionPower_On->setEnabled( true );
+		AQError( "void Main_Window::on_action_Power_On_triggered()",
+				 "DBus start failed. Falling back to direct VM start." );
 
-        AQError( "void Main_Window::on_action_Power_On_triggered()", "Cannot Start VM!" );
-    }
+		if( ! cur_vm->Start_Direct() )
+		{
+			pending_vm_start.clear();
+			if( cur_vm->Get_State() == VM::VMS_Power_Off || cur_vm->Get_State() == VM::VMS_Saved )
+				ui.actionPower_On->setEnabled( true );
+
+			AQError( "void Main_Window::on_action_Power_On_triggered()", "Cannot Start VM!" );
+		}
+	}
 }
 
 void Main_Window::on_actionSave_triggered()
