@@ -1,0 +1,68 @@
+#!/bin/sh
+
+set -eu
+
+AQEMU_DIR="$HOME/.aqemu"
+TPM_SOCK="$AQEMU_DIR/setpm.sock"
+OVMF_VARS="$AQEMU_DIR/OVMF_VARS_Windows_11_x64.fd"
+
+OVMF_CODE=""
+for candidate in \
+    /usr/share/OVMF/OVMF_CODE_4M.secboot.fd \
+    /usr/share/OVMF/OVMF_CODE.secboot.fd \
+    /usr/share/edk2-ovmf/x64/OVMF_CODE.secboot.fd \
+    /usr/share/OVMF/OVMF_CODE_4M.fd \
+    /usr/share/OVMF/OVMF_CODE.fd \
+    /usr/share/edk2-ovmf/x64/OVMF_CODE.fd
+do
+    if test -s "$candidate"; then
+        OVMF_CODE="$candidate"
+        break
+    fi
+done
+
+OVMF_VARS_TEMPLATE=""
+for candidate in \
+    /usr/share/OVMF/OVMF_VARS_4M.ms.fd \
+    /usr/share/OVMF/OVMF_VARS.ms.fd \
+    /usr/share/edk2-ovmf/x64/OVMF_VARS.ms.fd \
+    /usr/share/OVMF/OVMF_VARS_4M.fd \
+    /usr/share/OVMF/OVMF_VARS.fd \
+    /usr/share/edk2-ovmf/x64/OVMF_VARS.fd
+do
+    if test -s "$candidate"; then
+        OVMF_VARS_TEMPLATE="$candidate"
+        break
+    fi
+done
+
+if test -n "$OVMF_CODE" && test -n "$OVMF_VARS_TEMPLATE"; then
+    test -s "$OVMF_VARS" || cp "$OVMF_VARS_TEMPLATE" "$OVMF_VARS"
+    set -- \
+        -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
+        -drive "if=pflash,format=raw,file=$OVMF_VARS" \
+        "$@"
+else
+    echo "Warning: OVMF Secure Boot firmware not found. Starting without UEFI Secure Boot." >&2
+fi
+
+test -S "$TPM_SOCK" && rm -f "$TPM_SOCK"
+swtpm socket --tpmstate dir="$AQEMU_DIR" --ctrl type=unixio,path="$TPM_SOCK" &
+
+i=0
+while test "$i" -lt 20 && ! test -S "$TPM_SOCK"; do
+    i=$((i + 1))
+    sleep 0.1
+done
+
+/usr/bin/qemu-system-x86_64  -smp 4 -machine q35,accel=kvm,usb=on,acpi=on,hpet=off -m 8192 \
+    -cdrom "/media/supaplex/ventoy-2tb/Win11_25H2_English_x64_v2.iso" \
+    -hda "$HOME/.aqemu/Windows-11.qcow2" -boot once=d,menu=off \
+    -netdev bridge,br=br0,id=net0 -device e1000,netdev=net0,mac=00:11:11:27:3e:22 \
+    -rtc base=localtime -name "Windows 11 x64" \
+    -cpu host,hv_relaxed,hv_frequencies,hv_vpindex,hv_ipi,hv_tlbflush,hv_spinlocks=0x1fff,hv_synic,hv_runtime,hv_time,hv_stimer,hv_vapic \
+    -device VGA,vgamem_mb=256 \
+    -chardev socket,id=chrtpm,path="$TPM_SOCK" \
+    -tpmdev emulator,id=tpm0,chardev=chrtpm \
+    -device tpm-tis,tpmdev=tpm0 \
+    "$@"
