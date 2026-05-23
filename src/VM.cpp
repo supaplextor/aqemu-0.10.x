@@ -2926,7 +2926,7 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	Dom_Text = New_Dom_Document.createTextNode( PFlash_File );
 	Dom_Element.appendChild( Dom_Text );
 	
-	// Additional Arguments
+	// Pre-Exec Command and Additional Arguments
 	Dom_Element = New_Dom_Document.createElement( "Pre_Exec_Command" );
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( Pre_Exec_Command );
@@ -4774,7 +4774,7 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 			// VNC x509verify Folder Path
 			VNC_x509verify_Folder_Path = Child_Element.firstChildElement( "VNC_x509verify_Folder_Path" ).text();
 			
-			// Additional Arguments
+			// Pre-Exec Command and Additional Arguments
 			Pre_Exec_Command = Child_Element.firstChildElement( "Pre_Exec_Command" ).text();
 			Additional_Args = Child_Element.firstChildElement( "Additional_Args" ).text();
 			
