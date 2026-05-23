@@ -1,4 +1,5 @@
-###Latest news:
+# Latest news:
+2026: forked at 0.9.6 and added a few improvements.
 2020: 0.9.6 is now the current development version (in master for now),
 use TBK fork if you want to use a stable checkout now, but use this repository
 if you want to contribute to AQEMU's future.
