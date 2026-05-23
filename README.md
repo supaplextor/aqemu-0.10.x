@@ -26,7 +26,7 @@ ninja
 ./aqemu
 ```
 
-![ScreenShot](https://i.imgur.com/PkvFUEk.png)
+<img width="3840" height="2160" alt="image" src="https://github.com/user-attachments/assets/fbcefa2d-0025-4639-98c2-987a49dd3428" />
 
 As an alternative to cmake the meson build system is also supported:
 https://github.com/mesonbuild/meson
