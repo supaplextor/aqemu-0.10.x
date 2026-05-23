@@ -279,13 +279,17 @@ Main_Window::~Main_Window()
 void Main_Window::VM_State_Changed(const QString &vm, int state)
 {
     AQError("void Main_Window::VM_State_Changed(const QString &vm, int state)","state changed");
+	AQLaunch_Trace( "vm-state-changed-dbus", QString("vm=%1 state=%2").arg(vm).arg(state) );
 
     for ( int i = 0; i < VM_List.count(); i++ )
     {
         if ( QFileInfo(vm) == QFileInfo(VM_List.at(i)->Get_VM_XML_File_Path()) )
         {
             if ( !pending_vm_start.isEmpty() && QFileInfo(vm) == QFileInfo(pending_vm_start) )
+			{
+				AQLaunch_Trace( "pending-start-cleared", QString("source=dbus vm=%1 pending=%2").arg(vm).arg(pending_vm_start) );
                 pending_vm_start.clear();
+			}
 
             VM_List.at(i)->Set_State( static_cast<VM::VM_State>(state) ); //FIXME
             AQError("void Main_Window::VM_State_Changed(const QString &vm, int state)",VM_List.at(i)->Get_State_Text());
@@ -1999,6 +2003,11 @@ void Main_Window::VM_State_Changed( Virtual_Machine *vm, VM::VM_State s )
          ( QFileInfo(vm->Get_VM_XML_File_Path()) == QFileInfo(pending_vm_start) ||
            vm->Get_Machine_Name() == pending_vm_start ) )
     {
+		AQLaunch_Trace( "pending-start-cleared",
+						QString("source=signal vm=%1 pending=%2 state=%3")
+							.arg(vm->Get_Machine_Name())
+							.arg(pending_vm_start)
+							.arg(vm->Get_State_Text()) );
         pending_vm_start.clear();
     }
 
@@ -3337,6 +3346,13 @@ void Main_Window::on_actionPower_On_triggered()
     if ( cur_vm == nullptr )
         return;
 
+	AQLaunch_Trace( "start-click",
+					QString("vm=%1 xml=%2 state=%3 pending=%4")
+						.arg(cur_vm->Get_Machine_Name())
+						.arg(cur_vm->Get_VM_XML_File_Path())
+						.arg(cur_vm->Get_State_Text())
+						.arg(pending_vm_start) );
+
 	if( ! Boot_Is_Correct(cur_vm) ) return;
 
     if ( !pending_vm_start.isEmpty() &&
@@ -3344,6 +3360,11 @@ void Main_Window::on_actionPower_On_triggered()
            cur_vm->Get_Machine_Name() == pending_vm_start ) )
     {
         // Prevent duplicate start requests for the same VM while launch is pending.
+		AQLaunch_Trace( "start-duplicate-suppressed",
+						QString("vm=%1 xml=%2 pending=%3")
+							.arg(cur_vm->Get_Machine_Name())
+							.arg(cur_vm->Get_VM_XML_File_Path())
+							.arg(pending_vm_start) );
         return;
     }
 
@@ -3351,15 +3372,23 @@ void Main_Window::on_actionPower_On_triggered()
     if ( pending_vm_start.isEmpty() )
         pending_vm_start = cur_vm->Get_Machine_Name();
 
+    AQLaunch_Trace( "pending-start-set",
+                    QString("vm=%1 pending=%2")
+                        .arg(cur_vm->Get_Machine_Name())
+                        .arg(pending_vm_start) );
+
     ui.actionPower_On->setEnabled( false );
 
     if( ! AQEMU_Service::get().call( "start" , cur_vm ) )
     {
+		AQLaunch_Trace( "start-dbus-failed-fallback-direct",
+						QString("vm=%1").arg(cur_vm->Get_Machine_Name()) );
 		AQError( "void Main_Window::on_action_Power_On_triggered()",
 				 "DBus start failed. Falling back to direct VM start." );
 
 		if( ! cur_vm->Start_Direct() )
 		{
+			AQLaunch_Trace( "start-direct-failed", QString("vm=%1").arg(cur_vm->Get_Machine_Name()) );
 			pending_vm_start.clear();
 			if( cur_vm->Get_State() == VM::VMS_Power_Off || cur_vm->Get_State() == VM::VMS_Saved )
 				ui.actionPower_On->setEnabled( true );

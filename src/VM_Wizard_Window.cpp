@@ -68,6 +68,9 @@ VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
 	}
 
     connect(ui.RB_Emulator_KVM, SIGNAL(toggled(bool)),this, SLOT(on_KVM_toggled(bool)));
+
+	ui.Edit_Native_Interface->setText( "br0" );
+	Update_Native_Network_Fields();
 }
 
 void VM_Wizard_Window::on_KVM_toggled(bool toggled)
@@ -76,6 +79,35 @@ void VM_Wizard_Window::on_KVM_toggled(bool toggled)
         ui.toolBox_accelInfo->setCurrentIndex(1);
     else
         ui.toolBox_accelInfo->setCurrentIndex(0);
+}
+
+void VM_Wizard_Window::on_RB_Native_Network_toggled( bool on )
+{
+	Q_UNUSED(on)
+	Update_Native_Network_Fields();
+}
+
+void VM_Wizard_Window::on_CB_Native_Network_Type_currentIndexChanged( int index )
+{
+	Q_UNUSED(index)
+	Update_Native_Network_Fields();
+}
+
+void VM_Wizard_Window::Update_Native_Network_Fields()
+{
+	const bool native_selected = ui.RB_Native_Network->isChecked();
+	const QString backend = ui.CB_Native_Network_Type->currentText();
+	const bool needs_iface = (backend == "Bridge" || backend == "TAP");
+
+	ui.Label_Native_Network_Type->setEnabled( native_selected );
+	ui.CB_Native_Network_Type->setEnabled( native_selected );
+	ui.Label_Native_Interface->setEnabled( native_selected && needs_iface );
+	ui.Edit_Native_Interface->setEnabled( native_selected && needs_iface );
+
+	if( backend == "TAP" )
+		ui.Label_Native_Interface->setText( tr("TAP interface:") );
+	else
+		ui.Label_Native_Interface->setText( tr("Bridge interface:") );
 }
 
 void VM_Wizard_Window::Set_VM_List( QList<Virtual_Machine*> *list )
@@ -326,7 +358,38 @@ void VM_Wizard_Window::applyTemplate()
 			ui.SB_HDD_Size->setValue( 10.0 );
 		
 		// Network
-		ui.RB_User_Mode_Network->setChecked( New_VM->Get_Use_Network() );
+		if( ! New_VM->Get_Use_Network() )
+		{
+			ui.RB_No_Network->setChecked( true );
+		}
+		else if( New_VM->Use_Native_Network() && New_VM->Get_Network_Cards_Nativ().count() > 0 )
+		{
+			ui.RB_Native_Network->setChecked( true );
+			const VM_Net_Card_Native &native_card = New_VM->Get_Network_Cards_Nativ().at(0);
+
+			switch( native_card.Get_Network_Type() )
+			{
+				case VM::Net_Mode_Native_Bridge:
+					ui.CB_Native_Network_Type->setCurrentText( "Bridge" );
+					if( native_card.Use_Bridge_Name() )
+						ui.Edit_Native_Interface->setText( native_card.Get_Bridge_Name() );
+					break;
+				case VM::Net_Mode_Native_TAP:
+					ui.CB_Native_Network_Type->setCurrentText( "TAP" );
+					if( native_card.Use_Interface_Name() )
+						ui.Edit_Native_Interface->setText( native_card.Get_Interface_Name() );
+					break;
+				default:
+					ui.CB_Native_Network_Type->setCurrentText( "User" );
+					break;
+			}
+		}
+		else
+		{
+			ui.RB_User_Mode_Network->setChecked( true );
+		}
+
+		Update_Native_Network_Fields();
 
 		// Find CPU List For This Template
 		Current_Devices = &All_Systems[ New_VM->Get_Computer_Type() ];
@@ -570,23 +633,50 @@ bool VM_Wizard_Window::Create_New_VM(bool simulate)
 	// Network
 	if( ui.RB_User_Mode_Network->isChecked() )
 	{
-		if( New_VM->Get_Network_Cards_Count() == 0 )
+		New_VM->Set_Use_Network( true );
+		New_VM->Use_Native_Network( false );
+		New_VM->Set_Network_Cards_Nativ( QList<VM_Net_Card_Native>() );
+		New_VM->Clear_Network_Cards_List();
+
+		VM_Net_Card net_card;
+		net_card.Set_Net_Mode( VM::Net_Mode_Usermode );
+		New_VM->Add_Network_Card( net_card );
+	}
+	else if( ui.RB_Native_Network->isChecked() )
+	{
+		New_VM->Set_Use_Network( true );
+		New_VM->Use_Native_Network( true );
+		New_VM->Clear_Network_Cards_List();
+
+		VM_Net_Card_Native native_card;
+		const QString backend = ui.CB_Native_Network_Type->currentText();
+
+		if( backend == "Bridge" )
 		{
-			New_VM->Set_Use_Network( true );
-			VM_Net_Card net_card;
-			net_card.Set_Net_Mode( VM::Net_Mode_Usermode );
-			
-			New_VM->Add_Network_Card( net_card );
+			native_card.Set_Network_Type( VM::Net_Mode_Native_Bridge );
+			native_card.Use_Bridge_Name( true );
+			native_card.Set_Bridge_Name( ui.Edit_Native_Interface->text().trimmed().isEmpty() ? "br0" : ui.Edit_Native_Interface->text().trimmed() );
 		}
+		else if( backend == "TAP" )
+		{
+			native_card.Set_Network_Type( VM::Net_Mode_Native_TAP );
+			native_card.Use_Interface_Name( !ui.Edit_Native_Interface->text().trimmed().isEmpty() );
+			native_card.Set_Interface_Name( ui.Edit_Native_Interface->text().trimmed() );
+		}
+		else
+		{
+			native_card.Set_Network_Type( VM::Net_Mode_Native_User );
+		}
+
+		QList<VM_Net_Card_Native> native_cards;
+		native_cards.append( native_card );
+		New_VM->Set_Network_Cards_Nativ( native_cards );
 	}
 	else if( ui.RB_No_Network->isChecked() )
 	{
 		New_VM->Set_Use_Network( false );
-		
-		for( int rx = 0; rx < New_VM->Get_Network_Cards_Count(); ++rx )
-		{
-			New_VM->Delete_Network_Card( 0 );
-		}
+		New_VM->Clear_Network_Cards_List();
+		New_VM->Set_Network_Cards_Nativ( QList<VM_Net_Card_Native>() );
 	}
 	
 	// Set Emulator Name (version) to Default ("")

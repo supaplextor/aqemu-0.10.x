@@ -487,8 +487,11 @@ class Virtual_Machine: public QObject
 
 		VM::VM_State State; // Saved, Running, etc...
 		VM::VM_State Old_State;
+		bool Start_In_Progress;
 		QString VM_XML_File_Path; // for load and save
 		QString Start_Snapshot_Tag;
+		QString Last_Start_Command;
+		QStringList Last_Start_Image_Paths;
 		bool Load_Mode;
 		bool Dont_Reinit;
 		bool Build_QEMU_Args_for_Tab_Info;

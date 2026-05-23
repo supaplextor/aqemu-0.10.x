@@ -32,6 +32,8 @@
 #include <QSettings>
 #include <QUuid>
 #include <QPainter>
+#include <QRegularExpression>
+#include <QSet>
 
 #ifdef Q_OS_WIN32
 #include <windows.h>
@@ -59,6 +61,78 @@
 
 using namespace TinyXML2QDomWrapper;
 
+namespace {
+QStringList extractImagePathsFromArgs( const QStringList &args )
+{
+	QSet<QString> image_paths;
+
+	for( int i = 0; i < args.count(); ++i )
+	{
+		const QString &arg = args[i];
+
+		if( arg == "-hda" || arg == "-hdb" || arg == "-hdc" || arg == "-hdd" ||
+			arg == "-cdrom" || arg == "-fda" || arg == "-fdb" || arg == "-sd" ||
+			arg == "-pflash" || arg == "-mtdblock" )
+		{
+			if( i + 1 < args.count() )
+				image_paths.insert( args[i + 1] );
+			continue;
+		}
+
+		if( arg == "-drive" && i + 1 < args.count() )
+		{
+			const QString &drive_arg = args[i + 1];
+			QRegularExpression file_re( "(?:^|,)file=([^,]+)" );
+			QRegularExpressionMatch file_match = file_re.match( drive_arg );
+			if( file_match.hasMatch() )
+				image_paths.insert( file_match.captured(1) );
+			continue;
+		}
+
+		if( arg.contains(".qcow", Qt::CaseInsensitive) || arg.contains(".img", Qt::CaseInsensitive) )
+			image_paths.insert( arg );
+	}
+
+	return image_paths.values();
+}
+
+QStringList extractPathsFromLockError( const QString &err )
+{
+	QSet<QString> paths;
+	QRegularExpression bracket_re( "\\[([^\\]]+)\\]" );
+	QRegularExpressionMatchIterator it = bracket_re.globalMatch( err );
+
+	while( it.hasNext() )
+	{
+		QRegularExpressionMatch m = it.next();
+		const QString p = m.captured(1).trimmed();
+		if( !p.isEmpty() )
+			paths.insert( p );
+	}
+
+	return paths.values();
+}
+
+QString lsofForPath( const QString &path )
+{
+	QProcess lsof;
+	lsof.start( "lsof", QStringList(path) );
+	if( ! lsof.waitForFinished(2000) )
+		return "lsof timed out";
+
+	QString out = QString::fromLocal8Bit( lsof.readAllStandardOutput() ).trimmed();
+	QString err = QString::fromLocal8Bit( lsof.readAllStandardError() ).trimmed();
+
+	if( out.isEmpty() )
+		out = "<no-open-handles>";
+
+	if( ! err.isEmpty() )
+		return out + " | stderr=" + err;
+
+	return out;
+}
+}
+
 // VM Class -----------------------------------------------------------------
 
 Virtual_Machine::Virtual_Machine()
@@ -81,8 +155,11 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	Monitor_Hostname = "localhost";
 	Monitor_Port = 6000;
 	State = vm.Get_State();
+	Start_In_Progress = false;
 	Emu_Ctl = new Emulator_Control_Window();
 	VM_XML_File_Path = vm.Get_VM_XML_File_Path();
+	Last_Start_Command.clear();
+	Last_Start_Image_Paths.clear();
 	Build_QEMU_Args_for_Script_Mode = false;
 	Build_QEMU_Args_for_Tab_Info = false;
 	UID = vm.Get_UID();
@@ -303,10 +380,13 @@ void Virtual_Machine::Shared_Constructor()
 	Monitor_Hostname = "localhost";
 	Monitor_Port = 6000;
 	this->State = VM::VMS_Power_Off;
+	Start_In_Progress = false;
 	Emu_Ctl = new Emulator_Control_Window();
 	Removable_Devices_List = "";
 	Update_Removable_Devices_Mode = false;
 	VM_XML_File_Path = "";
+	Last_Start_Command.clear();
+	Last_Start_Image_Paths.clear();
 	Build_QEMU_Args_for_Script_Mode = false;
 	Build_QEMU_Args_for_Tab_Info = false;
 	UID = "";
@@ -7267,41 +7347,47 @@ bool Virtual_Machine::Start_impl()
         QEMU_Process->setEnvironment( tmp_env );
     }
 
-    if( ! Pre_Exec_Command.isEmpty() )
-    {
-        QStringList pre_exec_args;
-        bool started = false;
+	QStringList launch_args;
+	QString launch_bin;
 
-        #ifdef Q_OS_WIN32
-            pre_exec_args << "/C" << Pre_Exec_Command;
-            started = QProcess::startDetached( "cmd", pre_exec_args );
-        #else
-            pre_exec_args << "-c" << Pre_Exec_Command;
-            started = QProcess::startDetached( "/bin/sh", pre_exec_args );
-        #endif
+	if( ! Pre_Exec_Command.isEmpty() )
+	{
+		QStringList pre_exec_args;
+		bool started = false;
 
-        if( ! started )
-        {
-            AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
-                             tr("Failed to start pre-launch shell command:\n%1").arg(Pre_Exec_Command), false );
-            Start_Snapshot_Tag = "";
-            return false;
-        }
-    }
+		#ifdef Q_OS_WIN32
+			pre_exec_args << "/C" << Pre_Exec_Command;
+			started = QProcess::startDetached( "cmd", pre_exec_args );
+		#else
+			pre_exec_args << "-c" << Pre_Exec_Command;
+			started = QProcess::startDetached( "/bin/sh", pre_exec_args );
+		#endif
 
-    // User Args Only
+		if( ! started )
+		{
+			AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
+							 tr("Failed to start pre-launch shell command:\n%1").arg(Pre_Exec_Command), false );
+			Start_Snapshot_Tag = "";
+			return false;
+		}
+	}
+
+	// User Args Only
     if( Use_User_Emulator_Binary && Only_User_Args )
     {
-        QStringList tmp_list = this->Build_QEMU_Args();
+		QStringList tmp_list = this->Build_QEMU_Args();
 
         if( tmp_list.count() < 1 )
         {
             AQError( "bool Virtual_Machine::Start()", "Cannot Start! Args is Empty!" );
+			AQLaunch_Trace( "start-build-args-empty", QString("vm=%1").arg(Machine_Name) );
+			Start_In_Progress = false;
+			return false;
         }
         else
         {
-            QString bin_name = tmp_list.takeAt( 0 );
-            QEMU_Process->start( bin_name, tmp_list );
+			launch_bin = tmp_list.takeAt( 0 );
+			launch_args = tmp_list;
         }
     }
     else
@@ -7327,6 +7413,8 @@ bool Virtual_Machine::Start_impl()
             AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
                              tr("Cannot start emulator! Binary path is empty!"), false );
             Start_Snapshot_Tag = "";
+			AQLaunch_Trace( "start-bin-missing", QString("vm=%1 reason=empty-binary-path").arg(Machine_Name) );
+			Start_In_Progress = false;
             return false;
         }
 
@@ -7335,6 +7423,11 @@ bool Virtual_Machine::Start_impl()
             AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
                              tr("Emulator binary not exists! Check path: %1").arg(bin_path), false );
             Start_Snapshot_Tag = "";
+			AQLaunch_Trace( "start-bin-missing",
+							QString("vm=%1 reason=binary-not-found path=%2")
+								.arg(Machine_Name)
+								.arg(bin_path) );
+			Start_In_Progress = false;
             return false;
         }
 
@@ -7345,8 +7438,18 @@ bool Virtual_Machine::Start_impl()
                 System_Info::Add_To_Used_USB_List( usb_dev );
         }
 
-        QEMU_Process->start( bin_path, this->Build_QEMU_Args() );
+		launch_bin = bin_path;
+		launch_args = this->Build_QEMU_Args();
     }
+
+	Last_Start_Command = launch_bin + " " + launch_args.join(" ");
+	Last_Start_Image_Paths = extractImagePathsFromArgs( launch_args );
+	AQLaunch_Trace( "start-launching",
+					QString("vm=%1 cmd=%2 images=%3")
+						.arg(Machine_Name)
+						.arg(Last_Start_Command)
+						.arg(Last_Start_Image_Paths.join(";")) );
+	QEMU_Process->start( launch_bin, launch_args );
 
     // Do NOT Start CPU
     if( ! Start_CPU )
@@ -7393,6 +7496,23 @@ bool Virtual_Machine::Start_impl()
 
 bool Virtual_Machine::Start()
 {
+	if( Start_In_Progress )
+	{
+		AQLaunch_Trace( "start-suppressed-in-progress",
+						QString("vm=%1 state=%2").arg(Machine_Name).arg(Get_State_Text()) );
+		return false;
+	}
+
+	if( State == VM::VMS_Running || State == VM::VMS_Pause )
+	{
+		AQLaunch_Trace( "start-suppressed-already-running",
+						QString("vm=%1 state=%2").arg(Machine_Name).arg(Get_State_Text()) );
+		return false;
+	}
+
+	Start_In_Progress = true;
+	AQLaunch_Trace( "start-enter", QString("vm=%1 state=%2").arg(Machine_Name).arg(Get_State_Text()) );
+
     if ( Start_impl() )
     {
         // VNC Password
@@ -7406,6 +7526,8 @@ bool Virtual_Machine::Start()
         return true;
     }
 
+	Start_In_Progress = false;
+	AQLaunch_Trace( "start-failed", QString("vm=%1 state=%2").arg(Machine_Name).arg(Get_State_Text()) );
     return false;
 }
 
@@ -9212,6 +9334,42 @@ void Virtual_Machine::Parse_StdErr()
 {
 	// FIXME in monitor tcp mode no possible get error strings
 	QString convOutput = QEMU_Process->readAllStandardError();
+
+	if( ! convOutput.trimmed().isEmpty() )
+	{
+		AQLaunch_Trace( "qemu-stderr",
+						QString("vm=%1 text=%2")
+							.arg(Machine_Name)
+							.arg(convOutput.simplified()) );
+	}
+
+	if( convOutput.contains("Failed to get \"write\" lock", Qt::CaseInsensitive) ||
+		convOutput.contains("Is another process using the image", Qt::CaseInsensitive) )
+	{
+		QStringList lock_paths = extractPathsFromLockError( convOutput );
+		if( lock_paths.isEmpty() )
+			lock_paths = Last_Start_Image_Paths;
+
+		if( lock_paths.isEmpty() )
+		{
+			AQLaunch_Trace( "qcow-lock-detected",
+							QString("vm=%1 details=%2 holders=<unknown>")
+								.arg(Machine_Name)
+								.arg(convOutput.simplified()) );
+		}
+		else
+		{
+			foreach( const QString &path, lock_paths )
+			{
+				AQLaunch_Trace( "qcow-lock-detected",
+								QString("vm=%1 path=%2 holders=%3 details=%4")
+									.arg(Machine_Name)
+									.arg(path)
+									.arg(lsofForPath(path))
+									.arg(convOutput.simplified()) );
+			}
+		}
+	}
 	
 	emit Clean_Console( convOutput );
 	emit Ready_StdErr( convOutput );
@@ -9267,6 +9425,12 @@ void Virtual_Machine::QEMU_Started()
 {
 	AQDebug( "void Virtual_Machine::QEMU_Started()",
 			 "QEMU Start" );
+	Start_In_Progress = false;
+	AQLaunch_Trace( "qemu-started",
+					QString("vm=%1 pid=%2 state=%3")
+						.arg(Machine_Name)
+						.arg(QEMU_Process->processId())
+						.arg(Get_State_Text()) );
 	
 	if( Start_CPU )
 	{
@@ -9301,6 +9465,12 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
 {
 	AQDebug( "void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStatus )" ,
 			 "QEMU Finished" );
+	Start_In_Progress = false;
+	AQLaunch_Trace( "qemu-finished",
+					QString("vm=%1 exitCode=%2 exitStatus=%3")
+						.arg(Machine_Name)
+						.arg(exitCode)
+						.arg(static_cast<int>(exitStatus)) );
 	
 	emit QEMU_End();
 	

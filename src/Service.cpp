@@ -153,6 +153,7 @@ bool AQEMU_Service::call(const QString& command, const QList<QVariant>& params, 
         if ( noblock )
         {
             iface.callWithArgumentList(QDBus::NoBlock, command, params);
+            return true;
         }
         else
         {
