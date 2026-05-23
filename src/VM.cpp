@@ -7283,7 +7283,7 @@ bool Virtual_Machine::Start_impl()
         if( ! started )
         {
             AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
-                             tr("Failed to start pre-launch shell command."), false );
+                             tr("Failed to start pre-launch shell command:\n%1").arg(Pre_Exec_Command), false );
             Start_Snapshot_Tag = "";
             return false;
         }

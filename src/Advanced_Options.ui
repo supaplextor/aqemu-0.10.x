@@ -192,6 +192,9 @@
       </item>
       <item row="0" column="0">
        <widget class="QLabel" name="label_Pre_Exec_Command">
+        <property name="toolTip">
+         <string>This command is started asynchronously via shell immediately before AQEMU launches the VM process.</string>
+        </property>
         <property name="text">
          <string>Shell command to run before launching this VM:</string>
         </property>
