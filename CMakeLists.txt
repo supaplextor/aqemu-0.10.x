@@ -5,8 +5,9 @@
 # Timothy Redaelli (Fix for build in a different folder)
 # Tobias Gläßer (Qt5 port)
 
-PROJECT( AQEMU CXX )
 CMAKE_MINIMUM_REQUIRED( VERSION 3.1.0 FATAL_ERROR )
+SET( AQEMU_VERSION "0.10.1" )
+PROJECT( AQEMU VERSION ${AQEMU_VERSION} LANGUAGES CXX )
 
 # Available options
 OPTION( DEBUG "Build with debug information" )
@@ -274,6 +275,20 @@ INSTALL( FILES ${app_menu} DESTINATION share/applications )
 
 FILE( GLOB app_menu "${CMAKE_CURRENT_SOURCE_DIR}/resources/menu_data/aqemu.appdata.xml" )
 INSTALL( FILES ${app_menu} DESTINATION share/appdata )
+
+SET( AQEMU_RELEASE_NAME "aqemu-${AQEMU_VERSION}" )
+SET( AQEMU_RELEASE_ROOT "${CMAKE_BINARY_DIR}/release" )
+SET( AQEMU_RELEASE_DIR "${AQEMU_RELEASE_ROOT}/${AQEMU_RELEASE_NAME}" )
+SET( AQEMU_RELEASE_ARCHIVE "${CMAKE_BINARY_DIR}/${AQEMU_RELEASE_NAME}.tar.gz" )
+
+ADD_CUSTOM_TARGET( release
+	COMMAND ${CMAKE_COMMAND} -E rm -rf "${AQEMU_RELEASE_DIR}"
+	COMMAND ${CMAKE_COMMAND} -E make_directory "${AQEMU_RELEASE_DIR}"
+	COMMAND ${CMAKE_COMMAND} --install "${CMAKE_BINARY_DIR}" --prefix "${AQEMU_RELEASE_DIR}"
+	COMMAND ${CMAKE_COMMAND} -E chdir "${AQEMU_RELEASE_ROOT}" ${CMAKE_COMMAND} -E tar "cfvz" "${AQEMU_RELEASE_ARCHIVE}" "${AQEMU_RELEASE_NAME}"
+	DEPENDS aqemu docs
+	COMMENT "Creating release archive ${AQEMU_RELEASE_ARCHIVE}"
+)
 
 # Create docs .bz2 files
 MACRO( create_docs _sources )
