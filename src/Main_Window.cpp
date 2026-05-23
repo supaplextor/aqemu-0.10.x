@@ -2802,44 +2802,37 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 
 	// Boot is correct?
 	QList<VM::Boot_Order> bootOrderList = tmp_vm->Get_Boot_Order_List();
-	bool foundValidBootDevice = false;
+	bool hasEnabledBootEntries = false;
 
 	for( int bx = 0; bx < bootOrderList.count(); bx++ )
 	{
 		if( bootOrderList[bx].Enabled )
 		{
+			hasEnabledBootEntries = true;
+
 			switch( bootOrderList[bx].Type )
 			{
 				case VM::Boot_From_FDA:
 					if( tmp_vm->Get_FD0().Get_Enabled() )
-					{
-						foundValidBootDevice = true;
 						return true;
-					}
 					break;
 
 				case VM::Boot_From_FDB:
 					if( tmp_vm->Get_FD1().Get_Enabled() )
-					{
-						foundValidBootDevice = true;
 						return true;
-					}
 					break;
 
 				case VM::Boot_From_CDROM:
 					if( tmp_vm->Get_CD_ROM().Get_Enabled() )
-					{
-						foundValidBootDevice = true;
 						return true;
-					}
 					break;
 
 				case VM::Boot_From_HDD:
-					if( tmp_vm->Get_HDA().Get_Enabled() )
-					{
-						foundValidBootDevice = true;
+					if( tmp_vm->Get_HDA().Get_Enabled() ||
+					    tmp_vm->Get_HDB().Get_Enabled() ||
+					    tmp_vm->Get_HDC().Get_Enabled() ||
+					    tmp_vm->Get_HDD().Get_Enabled() )
 						return true;
-					}
 					break;
 
 				case VM::Boot_From_Network1:
@@ -2847,10 +2840,7 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 				case VM::Boot_From_Network3:
 				case VM::Boot_From_Network4:
 					if( tmp_vm->Get_Use_Network() )
-					{
-						foundValidBootDevice = true;
 						return true;
-					}
 					break;
 
 				default:
@@ -2859,13 +2849,12 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 		}
 	}
 
-	if( foundValidBootDevice )
+	if( hasEnabledBootEntries )
 	{
-		//AQGraphic_Warning( tr("Error!"), tr("No boot device found!") );
-        No_Boot_Device(this).exec();
+		No_Boot_Device(this).exec();
 		return false;
 	}
-	else return true; // boot device type: None
+	return true; // boot device type: None
 }
 
 bool Main_Window::No_Device_Found( const QString &name, const QString &path, VM::Boot_Device type )
