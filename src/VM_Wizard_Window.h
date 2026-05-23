@@ -43,6 +43,8 @@ class VM_Wizard_Window: public QDialog
 		
 	private slots:
         void on_KVM_toggled(bool toggled);
+		void on_RB_Native_Network_toggled( bool on );
+		void on_CB_Native_Network_Type_currentIndexChanged( int index );
 		bool Load_OS_Templates();
         bool Create_New_VM(bool simulate = false);
 		QString Find_OS_Icon( const QString os_name );
@@ -72,6 +74,7 @@ class VM_Wizard_Window: public QDialog
         void applyTemplate();
         void By_Year();
         void Typical_Or_Custom();
+		void Update_Native_Network_Fields();
 
 		QSettings Settings;
 		Ui::VM_Wizard_Window ui;

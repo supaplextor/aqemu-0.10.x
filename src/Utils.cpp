@@ -231,6 +231,34 @@ void AQSave_To_Log( const QString &mes_type, const QString &sender, const QStrin
 	}
 }
 
+QString AQGet_Launch_Trace_Path()
+{
+	QSettings settings;
+	QString vm_dir = settings.value( "VM_Directory", QDir::homePath() + "/.aqemu" ).toString();
+
+	if( vm_dir.isEmpty() )
+		vm_dir = QDir::homePath() + "/.aqemu";
+
+	QDir dir( vm_dir );
+	if( ! dir.exists() )
+		dir.mkpath( "." );
+
+	return dir.absoluteFilePath( "aqemu-launch-trace.log" );
+}
+
+void AQLaunch_Trace( const QString &event, const QString &details )
+{
+	const QString trace_path = AQGet_Launch_Trace_Path();
+	QFile trace_file( trace_path );
+
+	if( ! trace_file.open(QIODevice::Append | QIODevice::Text) )
+		return;
+
+	QTextStream out( &trace_file );
+	out << QDateTime::currentDateTime().toString( "yyyy.MM.dd hh:mm:ss zzz" )
+		<< " [" << event << "] " << details << "\n";
+}
+
 bool Create_New_HDD_Image( bool encrypted, const QString &base_image,
 						   const QString &file_name, const QString &format, VM::Device_Size size, bool verbose )
 {

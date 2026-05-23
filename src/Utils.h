@@ -24,7 +24,7 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#define CURRENT_AQEMU_VERSION "0.10.1"
+#define CURRENT_AQEMU_VERSION "0.10.2"
 #define CURRENT_AQEMU_RELEASE_DATE "UNKNOWN"
 
 #include <QString>
@@ -51,6 +51,8 @@ void AQUse_Log( bool use );
 void AQUse_Debug_Output( bool use, bool d, bool w, bool e );
 void AQLog_Path( const QString &path );
 void AQSave_To_Log( const QString &mes_type, const QString &sender, const QString &mes );
+QString AQGet_Launch_Trace_Path();
+void AQLaunch_Trace( const QString &event, const QString &details = QString() );
 
 bool Create_New_HDD_Image( bool encrypted, const QString &base_image,
 						   const QString &file_name, const QString &format, VM::Device_Size size, bool verbose );

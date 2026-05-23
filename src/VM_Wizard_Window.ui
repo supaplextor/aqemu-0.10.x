@@ -1207,13 +1207,64 @@ p, li { white-space: pre-wrap; }
         </widget>
        </item>
        <item row="3" column="0">
+          <widget class="QRadioButton" name="RB_Native_Network">
+           <property name="text">
+            <string>&amp;Native Network Backend (Configure bridge/tap/native user)</string>
+           </property>
+          </widget>
+         </item>
+         <item row="4" column="0">
+          <layout class="QGridLayout" name="gridLayout_native_network">
+           <item row="0" column="0">
+            <widget class="QLabel" name="Label_Native_Network_Type">
+             <property name="text">
+              <string>Backend:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QComboBox" name="CB_Native_Network_Type">
+             <item>
+              <property name="text">
+               <string>User</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Bridge</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>TAP</string>
+              </property>
+             </item>
+            </widget>
+           </item>
+           <item row="1" column="0">
+            <widget class="QLabel" name="Label_Native_Interface">
+             <property name="text">
+              <string>Bridge interface:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="1" column="1">
+            <widget class="QLineEdit" name="Edit_Native_Interface">
+             <property name="placeholderText">
+              <string>br0</string>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </item>
+         <item row="5" column="0">
         <widget class="QRadioButton" name="RB_No_Network">
          <property name="text">
           <string>No Ne&amp;twork (No net cards installed on VM)</string>
          </property>
         </widget>
        </item>
-       <item row="4" column="0">
+         <item row="6" column="0">
         <spacer name="s11">
          <property name="orientation">
           <enum>Qt::Vertical</enum>
@@ -1377,6 +1428,9 @@ p, li { white-space: pre-wrap; }
   <tabstop>Button_New_HDD</tabstop>
   <tabstop>Button_Existing</tabstop>
   <tabstop>RB_User_Mode_Network</tabstop>
+  <tabstop>RB_Native_Network</tabstop>
+  <tabstop>CB_Native_Network_Type</tabstop>
+  <tabstop>Edit_Native_Interface</tabstop>
   <tabstop>RB_No_Network</tabstop>
   <tabstop>SB_HDD_Size</tabstop>
  </tabstops>
