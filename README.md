@@ -18,12 +18,13 @@ new set of features, therefore a stable release can't be provided currently.
 I was working on those features years ago, when I had to stop due various reasons,
 but now I plan to bring the work to an end, hopefully with the help of the community.
 
-Example how to build using meson/ninja:
+Example how to build using meson/ninja on Debian Trixie:
 ```
-meson builddir
-cd builddir
-ninja
-./aqemu
+sudo apt update
+sudo apt install -y meson ninja-build build-essential qtbase5-dev libqt5svg5-dev libqt5x11extras5-dev libx11-dev libxext-dev libxi-dev zlib1g-dev libglib2.0-dev
+meson setup builddir
+meson compile -C builddir
+./builddir/aqemu
 ```
 
 <img width="3840" height="2160" alt="image" src="https://github.com/user-attachments/assets/fbcefa2d-0025-4639-98c2-987a49dd3428" />
