@@ -184,6 +184,7 @@ class Main_Window: public QMainWindow
 		void on_TB_MTDBlock_File_Browse_clicked();
 		void on_TB_SD_Image_File_Browse_clicked();
 		void on_TB_PFlash_File_Browse_clicked();
+		void on_TB_PFlash_Code_File_Browse_clicked();
 		
 	protected:
 		void closeEvent( QCloseEvent *event );

@@ -1341,9 +1341,6 @@
            <zorder>label_2</zorder>
            <zorder>label_3</zorder>
            <zorder>label_4</zorder>
-           <zorder>verticalSpacer_11</zorder>
-           <zorder>verticalSpacer_5</zorder>
-           <zorder>verticalSpacer_9</zorder>
           </widget>
           <widget class="QWidget" name="Tab_Media">
            <attribute name="icon">
@@ -1588,22 +1585,50 @@
                     </property>
                    </widget>
                   </item>
-                  <item row="3" column="0">
+                  <item row="4" column="0">
                    <widget class="QCheckBox" name="CH_PFlash">
                     <property name="text">
-                     <string>Parallel flash image</string>
+                    <string>Parallel flash vars image</string>
                     </property>
                    </widget>
                   </item>
-                  <item row="3" column="1">
+                  <item row="4" column="1">
                    <widget class="QLineEdit" name="Edit_PFlash_File">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
                    </widget>
                   </item>
-                  <item row="3" column="2">
+                  <item row="4" column="2">
                    <widget class="QToolButton" name="TB_PFlash_File_Browse">
+                    <property name="enabled">
+                     <bool>false</bool>
+                    </property>
+                    <property name="text">
+                     <string>...</string>
+                    </property>
+                    <property name="icon">
+                     <iconset resource="../resources/icons.qrc">
+                      <normaloff>:/open-file.png</normaloff>:/open-file.png</iconset>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="0">
+                   <widget class="QCheckBox" name="CH_PFlash_Code">
+                    <property name="text">
+                     <string>Parallel flash code image (readonly)</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="1">
+                   <widget class="QLineEdit" name="Edit_PFlash_Code_File">
+                    <property name="enabled">
+                     <bool>false</bool>
+                    </property>
+                   </widget>
+                  </item>
+                  <item row="3" column="2">
+                   <widget class="QToolButton" name="TB_PFlash_Code_File_Browse">
                     <property name="enabled">
                      <bool>false</bool>
                     </property>
@@ -2457,7 +2482,7 @@
                     </layout>
                    </item>
                    <item row="1" column="0" colspan="2">
-                    <widget class="QWidget" name="widget" native="true">
+                    <widget class="QWidget" name="widget_redirection_protocol" native="true">
                      <layout class="QHBoxLayout" name="Widget_Redirection_Protocol">
                       <property name="spacing">
                        <number>6</number>
@@ -2515,7 +2540,7 @@
                     </widget>
                    </item>
                    <item row="2" column="0" colspan="2">
-                    <widget class="QWidget" name="widget" native="true">
+                    <widget class="QWidget" name="widget_redirection_net" native="true">
                      <layout class="QHBoxLayout" name="Widget_Redirection_Net">
                       <property name="spacing">
                        <number>6</number>
@@ -3493,6 +3518,7 @@
   <tabstop>CH_ROM_File</tabstop>
   <tabstop>CH_MTDBlock</tabstop>
   <tabstop>CH_SD_Image</tabstop>
+  <tabstop>CH_PFlash_Code</tabstop>
   <tabstop>CH_PFlash</tabstop>
   <tabstop>CH_Use_Linux_Boot</tabstop>
  </tabstops>
@@ -3710,6 +3736,38 @@
    </hints>
   </connection>
   <connection>
+    <sender>CH_PFlash_Code</sender>
+    <signal>toggled(bool)</signal>
+    <receiver>Edit_PFlash_Code_File</receiver>
+    <slot>setEnabled(bool)</slot>
+    <hints>
+     <hint type="sourcelabel">
+      <x>387</x>
+      <y>290</y>
+     </hint>
+     <hint type="destinationlabel">
+      <x>681</x>
+      <y>290</y>
+     </hint>
+    </hints>
+    </connection>
+    <connection>
+    <sender>CH_PFlash_Code</sender>
+    <signal>toggled(bool)</signal>
+    <receiver>TB_PFlash_Code_File_Browse</receiver>
+    <slot>setEnabled(bool)</slot>
+    <hints>
+     <hint type="sourcelabel">
+      <x>387</x>
+      <y>290</y>
+     </hint>
+     <hint type="destinationlabel">
+      <x>892</x>
+      <y>290</y>
+     </hint>
+    </hints>
+    </connection>
+    <connection>
    <sender>CH_PFlash</sender>
    <signal>toggled(bool)</signal>
    <receiver>Edit_PFlash_File</receiver>
