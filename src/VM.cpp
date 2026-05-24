@@ -5980,10 +5980,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					else if( Boot_Order_List[ix].Type == VM::Boot_From_FDB ) bootStr += "b";
 					else if( Boot_Order_List[ix].Type == VM::Boot_From_HDD ) bootStr += "c";
 					else if( Boot_Order_List[ix].Type == VM::Boot_From_CDROM ) bootStr += "d";
-					else if( Boot_Order_List[ix].Type == VM::Boot_From_Network1 ) bootStr += "n";
-					else if( Boot_Order_List[ix].Type == VM::Boot_From_Network2 ) bootStr += "n";
-					else if( Boot_Order_List[ix].Type == VM::Boot_From_Network3 ) bootStr += "n";
-					else if( Boot_Order_List[ix].Type == VM::Boot_From_Network4 ) bootStr += "n";
+					else if( Boot_Order_List[ix].Type == VM::Boot_From_Network1 ||
+							 Boot_Order_List[ix].Type == VM::Boot_From_Network2 ||
+							 Boot_Order_List[ix].Type == VM::Boot_From_Network3 ||
+							 Boot_Order_List[ix].Type == VM::Boot_From_Network4 ) bootStr += "n";
 				}
 			}
 			
@@ -6000,10 +6000,10 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_FDB ) bootStr = "b";
 			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_HDD ) bootStr = "c";
 			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_CDROM ) bootStr = "d";
-			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network1 ) bootStr = "n";
-			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network2 ) bootStr = "n";
-			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network3 ) bootStr = "n";
-			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network4 ) bootStr = "n";
+			else if( Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network1 ||
+					 Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network2 ||
+					 Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network3 ||
+					 Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network4 ) bootStr = "n";
 			
 			bootStr.prepend( (bootStr.isEmpty() ? "" : "once=") );
 			bootStr += QString(bootStr.isEmpty() ? "" : ",") + "menu=" + QString(Show_Boot_Menu ? "on" : "off");
