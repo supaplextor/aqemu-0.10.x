@@ -564,7 +564,7 @@ void Main_Window::Connect_Signals()
 			 this, SLOT(VM_Changed()) );
 
 	// Advanced Options
-	connect( ui_ao.Edit_Pre_Exec_Command, SIGNAL(textChanged(const QString &)),
+	connect( ui_ao.Edit_Pre_Exec_Command, SIGNAL(textChanged()),
 			 this, SLOT(VM_Changed()) );
 
 	connect( ui_ao.Edit_Additional_Args, SIGNAL(textChanged()),
@@ -993,7 +993,7 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_PFlash_File( ui.Edit_PFlash_File->text() );
 
 	// Additional QEMU Arguments
-	tmp_vm->Set_Pre_Exec_Command( ui_ao.Edit_Pre_Exec_Command->text() );
+	tmp_vm->Set_Pre_Exec_Command( ui_ao.Edit_Pre_Exec_Command->toPlainText() );
 	tmp_vm->Set_Additional_Args( ui_ao.Edit_Additional_Args->toPlainText() );
 
 	// Only_User_Args
@@ -1534,7 +1534,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	ui_ao.DTE_Start_Date->setDateTime( tmp_vm->Get_Start_Date() );
 
 	// Additional Arguments
-	ui_ao.Edit_Pre_Exec_Command->setText( tmp_vm->Get_Pre_Exec_Command() );
+	ui_ao.Edit_Pre_Exec_Command->setPlainText( tmp_vm->Get_Pre_Exec_Command() );
 	ui_ao.Edit_Additional_Args->setPlainText( tmp_vm->Get_Additional_Args() );
 
 	// Only_User_Args
@@ -3744,12 +3744,36 @@ void Main_Window::on_actionCreate_Shell_Script_triggered()
 		return;
 	}
 
-	QString script_code = "#!/bin/sh\n# This script was created by AQEMU\n" + Get_Current_Binary_Name();
+	QString script_code = "#!/bin/sh\n# This script was created by AQEMU\n";
+
+	QString pre_exec_cmd = cur_vm->Get_Pre_Exec_Command().trimmed();
+	if( ! pre_exec_cmd.isEmpty() )
+	{
+		QString quoted_pre_exec_cmd = pre_exec_cmd;
+		quoted_pre_exec_cmd.replace( "'", "'\"'\"'" );
+		script_code += "# Run pre-launch command\n";
+		script_code += "sh -c '" + quoted_pre_exec_cmd + "'\n";
+	}
+
+	script_code += Get_Current_Binary_Name();
 	QStringList all_args = cur_vm->Build_QEMU_Args_For_Script();
+	QStringList filtered_args;
 
-	for( int ix = 0; ix < all_args.count(); ix++ ) script_code += " " + all_args[ ix ];
+	for( int ix = 0; ix < all_args.count(); ix++ )
+	{
+		if( all_args[ix] == "-monitor" &&
+			ix + 1 < all_args.count() &&
+			all_args[ix + 1] == "stdio" )
+		{
+			ix++;
+			continue;
+		}
 
-	script_code = script_code.remove( "-monitor stdio" );
+		filtered_args << all_args[ix];
+	}
+
+	for( int ix = 0; ix < filtered_args.count(); ix++ )
+		script_code += " \\\n    " + filtered_args[ ix ];
 
 	// Save Script
 	QString selectedFilter = "";
@@ -3778,7 +3802,7 @@ void Main_Window::on_actionCreate_Shell_Script_triggered()
 		}
 
 		QTextStream out( &scriptFile );
-		out << script_code << " \"$@\"\n";
+		out << script_code << " \\\n    \"$@\"\n";
 		
 		// Set File Permissions
 		scriptFile.setPermissions( scriptFile.permissions() | QFile::ExeOwner | QFile::ExeUser );
