@@ -362,13 +362,28 @@ int AQEMU_Main::find_data_folders()
     if( settings->value("AQEMU_Data_Folder", "").toString().isEmpty() )
     {
         #ifdef Q_OS_WIN32
-        if( QDir(QDir::currentPath() + "\\os_icons").exists() &&
-            QDir(QDir::currentPath() + "\\os_templates").exists() )
+        const QString appDir = QCoreApplication::applicationDirPath();
+        const QString shareAqemuSubdir = "/share/aqemu";
+        QStringList dataDirs;
+        dataDirs << QDir::currentPath()
+                 << appDir
+                 << QDir::cleanPath(appDir + "/.." + shareAqemuSubdir)
+                 << QDir::cleanPath(appDir + shareAqemuSubdir);
+
+        for( int dirIndex = 0; dirIndex < dataDirs.count(); ++dirIndex )
         {
-            settings->setValue( "AQEMU_Data_Folder", QDir::toNativeSeparators(QDir::currentPath()) );
-            AQDebug( "int main( int argc, char *argv[] )", "Use Data Folder: " + QDir::currentPath() );
+            QDir dataDir( dataDirs[dirIndex] );
+
+            if( dataDir.exists("os_icons") &&
+                dataDir.exists("os_templates") )
+            {
+                settings->setValue( "AQEMU_Data_Folder", QDir::toNativeSeparators(dataDir.absolutePath()) );
+                AQDebug( "int main( int argc, char *argv[] )", "Use Data Folder: " + dataDir.absolutePath() );
+                break;
+            }
         }
-        else
+
+        if( settings->value("AQEMU_Data_Folder", "").toString().isEmpty() )
         {
             AQGraphic_Error( "int main( int argc, char *argv[] )", QObject::tr("Error!"),
                              QObject::tr("Cannot Find AQEMU Data!"), false );
