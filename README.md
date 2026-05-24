@@ -30,3 +30,19 @@ ninja
 
 As an alternative to cmake the meson build system is also supported:
 https://github.com/mesonbuild/meson
+
+
+## Building a 64-bit Windows executable (Windows 11)
+
+Yes — AQEMU can be built as an amd64 (`x86_64`) Windows executable using Qt5 + CMake.
+
+Typical MSYS2 MinGW64 build:
+
+```bash
+pacman -S --needed mingw-w64-x86_64-toolchain mingw-w64-x86_64-cmake mingw-w64-x86_64-qt5
+cmake -S . -B build -G "MinGW Makefiles" -DWITHOUT_EMBEDDED_DISPLAY=ON -DINSTALL_MAN=OFF -DCMAKE_INSTALL_PREFIX=dist
+cmake --build build
+cmake --install build
+```
+
+This installs `aqemu.exe` into `dist/bin` and data files into `dist/share/aqemu`.
