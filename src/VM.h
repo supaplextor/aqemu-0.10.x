@@ -344,6 +344,12 @@ class Virtual_Machine: public QObject
 		
 		const QString &Get_PFlash_File() const;
 		void Set_PFlash_File( const QString &file );
+
+		bool Use_PFlash_Code_File() const;
+		void Use_PFlash_Code_File( bool use );
+
+		const QString &Get_PFlash_Code_File() const;
+		void Set_PFlash_Code_File( const QString &file );
 		
 		bool Use_KVM() const;
 		void Use_KVM( bool use );
@@ -590,6 +596,9 @@ class Virtual_Machine: public QObject
 		
 		bool PFlash;
 		QString PFlash_File;
+
+		bool PFlash_Code;
+		QString PFlash_Code_File;
 		
 		bool Enable_KVM;
 		bool KVM_IRQChip;

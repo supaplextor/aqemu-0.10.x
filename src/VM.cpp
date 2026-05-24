@@ -39,7 +39,7 @@
 #ifdef Q_OS_WIN32
 #include <windows.h>
 #else
-#include <QTest>
+#include <QThread>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -408,6 +408,8 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	
 	this->PFlash = vm.Use_PFlash_File();
 	this->PFlash_File = vm.Get_PFlash_File();
+	this->PFlash_Code = vm.Use_PFlash_Code_File();
+	this->PFlash_Code_File = vm.Get_PFlash_Code_File();
 	
 	this->Enable_KVM = vm.Use_KVM();
 	this->KVM_IRQChip = vm.Use_KVM_IRQChip();
@@ -618,6 +620,8 @@ void Virtual_Machine::Shared_Constructor()
 	
 	PFlash = false;
 	PFlash_File = "";
+	PFlash_Code = false;
+	PFlash_Code_File = "";
 	
 	Enable_KVM = true;
 	KVM_IRQChip = false;
@@ -718,6 +722,8 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->SecureDigital_File == vm.Get_SecureDigital_File() &&
 		this->PFlash == vm.Use_PFlash_File() &&
 		this->PFlash_File == vm.Get_PFlash_File() &&
+		this->PFlash_Code == vm.Use_PFlash_Code_File() &&
+		this->PFlash_Code_File == vm.Get_PFlash_Code_File() &&
 		this->Enable_KVM == vm.Use_KVM() &&
 		this->KVM_IRQChip == vm.Use_KVM_IRQChip() &&
 		this->No_KVM_Pit == vm.Use_No_KVM_Pit() &&
@@ -997,6 +1003,8 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	
 	this->PFlash = vm.Use_PFlash_File();
 	this->PFlash_File = vm.Get_PFlash_File();
+	this->PFlash_Code = vm.Use_PFlash_Code_File();
+	this->PFlash_Code_File = vm.Get_PFlash_Code_File();
 	
 	this->Enable_KVM = vm.Use_KVM();
 	this->KVM_IRQChip = vm.Use_KVM_IRQChip();
@@ -3117,6 +3125,23 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( PFlash_File );
 	Dom_Element.appendChild( Dom_Text );
+
+	// Use PFlash Code File (readonly)
+	Dom_Element = New_Dom_Document.createElement( "Use_PFlash_Code_File" );
+	VM_Element.appendChild( Dom_Element );
+
+	if( PFlash_Code )
+		Dom_Text = New_Dom_Document.createTextNode( "true" );
+	else
+		Dom_Text = New_Dom_Document.createTextNode( "false" );
+
+	Dom_Element.appendChild( Dom_Text );
+
+	// PFlash Code File
+	Dom_Element = New_Dom_Document.createElement( "PFlash_Code_File" );
+	VM_Element.appendChild( Dom_Element );
+	Dom_Text = New_Dom_Document.createTextNode( PFlash_Code_File );
+	Dom_Element.appendChild( Dom_Text );
 	
 	// Pre-Exec Command and Additional Arguments
 	Dom_Element = New_Dom_Document.createElement( "Pre_Exec_Command" );
@@ -4784,6 +4809,20 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 			
 			// PFlash File
 			PFlash_File = Child_Element.firstChildElement( "PFlash_File" ).text();
+
+			// Use PFlash Code File (readonly)
+			QDomElement pflash_code_use_element = Child_Element.firstChildElement( "Use_PFlash_Code_File" );
+			if( pflash_code_use_element.isNull() )
+				PFlash_Code = false;
+			else
+				PFlash_Code = (pflash_code_use_element.text() == "true" );
+
+			// PFlash Code File
+			QDomElement pflash_code_file_element = Child_Element.firstChildElement( "PFlash_Code_File" );
+			if( pflash_code_file_element.isNull() )
+				PFlash_Code_File = "";
+			else
+				PFlash_Code_File = pflash_code_file_element.text();
 			
 			// Enable KVM
 			Enable_KVM = ! (Child_Element.firstChildElement("Enable_KVM").text() == "false" );
@@ -6925,13 +6964,34 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			Args << "-sd" << SecureDigital_File;
 	}
 	
-	// parallel flash image
-	if( Current_Emulator_Devices.PSO_PFlash && PFlash )
+	// parallel flash images (UEFI firmware code + vars)
+	if( Current_Emulator_Devices.PSO_PFlash )
 	{
-		if( Build_QEMU_Args_for_Script_Mode )
-			Args << "-pflash" << "\"" + PFlash_File + "\"";
-		else
-			Args << "-pflash" << PFlash_File;
+		if( PFlash_Code )
+		{
+			if( Build_QEMU_Args_for_Script_Mode )
+				Args << "-drive" << QString("if=pflash,format=raw,readonly=on,file=\"%1\"").arg( PFlash_Code_File );
+			else
+				Args << "-drive" << QString("if=pflash,format=raw,readonly=on,file=%1").arg( PFlash_Code_File );
+		}
+
+		if( PFlash )
+		{
+			if( PFlash_Code )
+			{
+				if( Build_QEMU_Args_for_Script_Mode )
+					Args << "-drive" << QString("if=pflash,format=raw,file=\"%1\"").arg( PFlash_File );
+				else
+					Args << "-drive" << QString("if=pflash,format=raw,file=%1").arg( PFlash_File );
+			}
+			else
+			{
+				if( Build_QEMU_Args_for_Script_Mode )
+					Args << "-pflash" << "\"" + PFlash_File + "\"";
+				else
+					Args << "-pflash" << PFlash_File;
+			}
+		}
 	}
 	
 	// Set the initial graphical resolution and depth
@@ -8052,7 +8112,7 @@ bool Virtual_Machine::Take_Screenshot( const QString &file_name, int width, int 
 	#ifdef Q_OS_WIN32
 	Sleep( 100 );
 	#else
-	QTest::qWait( 100 );
+	QThread::msleep( 100 );
 	#endif
 
 	QImage im = QImage();
@@ -8071,7 +8131,7 @@ bool Virtual_Machine::Take_Screenshot( const QString &file_name, int width, int 
 		#ifdef Q_OS_WIN32
 		Sleep( 100 );
 		#else
-		QTest::qWait( 100 );
+		QThread::msleep( 100 );
 		#endif
 	}
 	
@@ -9240,6 +9300,26 @@ const QString &Virtual_Machine::Get_PFlash_File() const
 void Virtual_Machine::Set_PFlash_File( const QString &file )
 {
 	PFlash_File = file;
+}
+
+bool Virtual_Machine::Use_PFlash_Code_File() const
+{
+	return PFlash_Code;
+}
+
+void Virtual_Machine::Use_PFlash_Code_File( bool use )
+{
+	PFlash_Code = use;
+}
+
+const QString &Virtual_Machine::Get_PFlash_Code_File() const
+{
+	return PFlash_Code_File;
+}
+
+void Virtual_Machine::Set_PFlash_Code_File( const QString &file )
+{
+	PFlash_Code_File = file;
 }
 
 bool Virtual_Machine::Use_KVM() const

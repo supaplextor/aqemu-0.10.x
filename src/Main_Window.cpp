@@ -650,6 +650,12 @@ void Main_Window::Connect_Signals()
 	connect( ui.Edit_PFlash_File, SIGNAL(textChanged(const QString &)),
 			 this, SLOT(VM_Changed()) );
 
+	connect( ui.CH_PFlash_Code, SIGNAL(clicked()),
+			 this, SLOT(VM_Changed()) );
+
+	connect( ui.Edit_PFlash_Code_File, SIGNAL(textChanged(const QString &)),
+			 this, SLOT(VM_Changed()) );
+
 	// Boot Linux Kernel
 	connect( ui.CH_Use_Linux_Boot, SIGNAL(clicked()),
 			 this, SLOT(VM_Changed()) );
@@ -991,6 +997,10 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	// Parallel Flash Image
 	tmp_vm->Use_PFlash_File( ui.CH_PFlash->isChecked() );
 	tmp_vm->Set_PFlash_File( ui.Edit_PFlash_File->text() );
+
+	// Parallel Flash Firmware Code Image (readonly)
+	tmp_vm->Use_PFlash_Code_File( ui.CH_PFlash_Code->isChecked() );
+	tmp_vm->Set_PFlash_Code_File( ui.Edit_PFlash_Code_File->text() );
 
 	// Additional QEMU Arguments
 	tmp_vm->Set_Pre_Exec_Command( ui_ao.Edit_Pre_Exec_Command->toPlainText() );
@@ -1615,6 +1625,10 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	ui.CH_PFlash->setChecked( tmp_vm->Use_PFlash_File() );
 	ui.Edit_PFlash_File->setText( tmp_vm->Get_PFlash_File() );
 
+	// Parallel Flash Firmware Code Image (readonly)
+	ui.CH_PFlash_Code->setChecked( tmp_vm->Use_PFlash_Code_File() );
+	ui.Edit_PFlash_Code_File->setText( tmp_vm->Get_PFlash_Code_File() );
+
 	/*// Disable KVM kernel mode PIC/IOAPIC/LAPIC
 	ui_kvm.CH_No_KVM_IRQChip->setChecked( tmp_vm->Use_KVM_IRQChip() );
 
@@ -1811,6 +1825,9 @@ void Main_Window::Update_Disabled_Controls()
 
 	if( curComp.PSO_PFlash ) ui.CH_PFlash->setEnabled( true );
 	else ui.CH_PFlash->setEnabled( false );
+
+	if( curComp.PSO_PFlash ) ui.CH_PFlash_Code->setEnabled( true );
+	else ui.CH_PFlash_Code->setEnabled( false );
 
 	//if( curComp.PSO_Name )
 	//else
@@ -2774,6 +2791,23 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 			{
 				ui.CH_PFlash->setChecked( false );
 				tmp_vm->Use_PFlash_File( false );
+			}
+		}
+	}
+
+	// Parallel Flash Firmware Code Image (readonly)
+	if( tmp_vm->Use_PFlash_Code_File() )
+	{
+		if( ! QFile::exists(tmp_vm->Get_PFlash_Code_File()) )
+		{
+			if( ! No_Device_Found(tr("Parallel Flash Firmware Code"), tmp_vm->Get_PFlash_Code_File(), VM::Boot_None) )
+			{
+				return false;
+			}
+			else
+			{
+				ui.CH_PFlash_Code->setChecked( false );
+				tmp_vm->Use_PFlash_Code_File( false );
 			}
 		}
 	}
@@ -4682,6 +4716,16 @@ void Main_Window::on_TB_PFlash_File_Browse_clicked()
 
 	if( ! flash_file.isEmpty() )
 		ui.Edit_PFlash_File->setText( QDir::toNativeSeparators(flash_file) );
+}
+
+void Main_Window::on_TB_PFlash_Code_File_Browse_clicked()
+{
+	QString flash_code_file = QFileDialog::getOpenFileName( this, tr("Select Parallel Flash Firmware Code Image"),
+														Get_Last_Dir_Path(ui.Edit_PFlash_Code_File->text()),
+														tr("All Files (*)") );
+
+	if( ! flash_code_file.isEmpty() )
+		ui.Edit_PFlash_Code_File->setText( QDir::toNativeSeparators(flash_code_file) );
 }
 
 QString Main_Window::Copy_VM_Hard_Drive( const QString &vm_name, const QString &hd_name, const VM_HDD &hd )

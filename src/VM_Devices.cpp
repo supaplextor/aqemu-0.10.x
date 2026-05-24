@@ -285,6 +285,7 @@ bool Emulator::Load( const QString &path )
 	}
 	
 	// Load devices
+	Devices.clear();
 	QMapIterator<QString, QString> iter( Binary_Files );
 	while( iter.hasNext() )
 	{
@@ -297,6 +298,16 @@ bool Emulator::Load( const QString &path )
 		{
 			AQWarning( "bool Emulator::Load( const QString &path )",
 					   QString("No \"%1\" element!").arg(iter.key()) );
+
+			// Keep a safe placeholder entry so callers can still access this
+			// binary key without crashing when emulator XML is incomplete.
+			Available_Devices fallbackDev;
+			fallbackDev.System = Device_Map( iter.key(), iter.key() );
+			fallbackDev.CPU_List << Device_Map( QObject::tr("Default"), "" );
+			fallbackDev.Machine_List << Device_Map( QObject::tr("Default"), "" );
+			fallbackDev.Network_Card_List << Device_Map( QObject::tr("Default"), "" );
+			fallbackDev.Video_Card_List << Device_Map( QObject::tr("Default"), "" );
+			Devices[ iter.key() ] = fallbackDev;
 			continue;
 		}
 		else
