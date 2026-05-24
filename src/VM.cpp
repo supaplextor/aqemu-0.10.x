@@ -34,11 +34,16 @@
 #include <QPainter>
 #include <QRegularExpression>
 #include <QSet>
+#include <QStandardPaths>
 
 #ifdef Q_OS_WIN32
 #include <windows.h>
 #else
 #include <QTest>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <unistd.h>
+#include <cstring>
 #endif
 
 #include <QRect>
@@ -131,6 +136,113 @@ QString lsofForPath( const QString &path )
 
 	return out;
 }
+
+#ifndef Q_OS_WIN32
+QString stripQuotes( const QString &value )
+{
+	if( value.length() >= 2 )
+	{
+		if( (value.startsWith('"') && value.endsWith('"')) ||
+			(value.startsWith('\'') && value.endsWith('\'')) )
+		{
+			return value.mid( 1, value.length() - 2 );
+		}
+	}
+
+	return value;
+}
+
+QString valueFromOptionList( const QStringList &parts, const QString &key )
+{
+	const QString prefix = key + "=";
+	for( int i = 0; i < parts.count(); ++i )
+	{
+		if( parts[i].startsWith(prefix) )
+			return stripQuotes( parts[i].mid(prefix.length()) );
+	}
+
+	return "";
+}
+
+bool startSwtpmSocketDaemon( const QString &socket_path, QString *error_text )
+{
+	const QString swtpm_bin = QStandardPaths::findExecutable( "swtpm" );
+	if( swtpm_bin.isEmpty() )
+	{
+		if( error_text )
+			*error_text = "swtpm binary not found in PATH";
+		return false;
+	}
+
+	if( QFile::exists(socket_path) )
+		QFile::remove( socket_path );
+
+	QString state_dir = QFileInfo( socket_path ).absolutePath();
+	if( state_dir.isEmpty() )
+		state_dir = QDir::homePath() + "/.aqemu";
+
+	QProcess swtpm_proc;
+	QStringList args;
+	args << "socket"
+		 << "--tpmstate" << QString("dir=%1").arg(state_dir)
+		 << "--ctrl" << QString("type=unixio,path=%1").arg(socket_path)
+		 << "--daemon";
+
+	swtpm_proc.start( swtpm_bin, args );
+	if( ! swtpm_proc.waitForFinished(5000) )
+	{
+		if( error_text )
+			*error_text = "swtpm --daemon did not finish in time";
+		swtpm_proc.kill();
+		return false;
+	}
+
+	if( swtpm_proc.exitStatus() != QProcess::NormalExit || swtpm_proc.exitCode() != 0 )
+	{
+		if( error_text )
+		{
+			*error_text = QString("swtpm failed (exit=%1): %2")
+								.arg(swtpm_proc.exitCode())
+								.arg(QString::fromLocal8Bit(swtpm_proc.readAllStandardError()).trimmed());
+		}
+		return false;
+	}
+
+	return true;
+}
+
+bool canConnectUnixSocket( const QString &socket_path )
+{
+	QByteArray encoded_path = QFile::encodeName( socket_path );
+	if( encoded_path.isEmpty() || encoded_path.size() >= int(sizeof(sockaddr_un::sun_path)) )
+		return false;
+
+	int fd = ::socket( AF_UNIX, SOCK_STREAM, 0 );
+	if( fd < 0 )
+		return false;
+
+	sockaddr_un addr;
+	std::memset( &addr, 0, sizeof(addr) );
+	addr.sun_family = AF_UNIX;
+	std::strncpy( addr.sun_path, encoded_path.constData(), sizeof(addr.sun_path) - 1 );
+
+	bool ok = (::connect( fd, reinterpret_cast<const sockaddr*>( &addr ), sizeof(addr) ) == 0);
+	::close( fd );
+	return ok;
+}
+
+bool waitForUnixSocketReady( const QString &socket_path, int tries, int sleep_ms )
+{
+	for( int i = 0; i < tries; ++i )
+	{
+		if( QFile::exists(socket_path) && canConnectUnixSocket(socket_path) )
+			return true;
+		QThread::msleep( sleep_ms );
+	}
+
+	return QFile::exists(socket_path) && canConnectUnixSocket(socket_path);
+}
+#endif
 }
 
 // VM Class -----------------------------------------------------------------
@@ -7352,21 +7464,35 @@ bool Virtual_Machine::Start_impl()
 
 	if( ! Pre_Exec_Command.isEmpty() )
 	{
+		QProcess pre_exec_process;
 		QStringList pre_exec_args;
-		bool started = false;
 
 		#ifdef Q_OS_WIN32
 			pre_exec_args << "/C" << Pre_Exec_Command;
-			started = QProcess::startDetached( "cmd", pre_exec_args );
+			pre_exec_process.start( "cmd", pre_exec_args );
 		#else
 			pre_exec_args << "-c" << Pre_Exec_Command;
-			started = QProcess::startDetached( "/bin/sh", pre_exec_args );
+			pre_exec_process.start( "/bin/sh", pre_exec_args );
 		#endif
 
-		if( ! started )
+		if( ! pre_exec_process.waitForStarted() )
 		{
 			AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
-							 tr("Failed to start pre-launch shell command:\n%1").arg(Pre_Exec_Command), false );
+							 tr("Failed to start pre-launch shell command:\n%1\n\n%2")
+							 .arg(Pre_Exec_Command, pre_exec_process.errorString()), false );
+			Start_Snapshot_Tag = "";
+			return false;
+		}
+
+		pre_exec_process.waitForFinished( -1 );
+
+		if( pre_exec_process.exitStatus() != QProcess::NormalExit ||
+			pre_exec_process.exitCode() != 0 )
+		{
+			AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
+							 tr("Pre-launch shell command failed (exit code %1):\n%2")
+							 .arg(pre_exec_process.exitCode())
+							 .arg(Pre_Exec_Command), false );
 			Start_Snapshot_Tag = "";
 			return false;
 		}
@@ -7441,6 +7567,104 @@ bool Virtual_Machine::Start_impl()
 		launch_bin = bin_path;
 		launch_args = this->Build_QEMU_Args();
     }
+
+	// If QEMU uses a Unix socket chardev (for example swtpm), wait briefly
+	// for the socket path to appear before launching QEMU.
+	QSet<QString> tpm_chardev_ids;
+	for( int ix = 0; ix < launch_args.count(); ++ix )
+	{
+		if( launch_args[ ix ] != "-tpmdev" || ix + 1 >= launch_args.count() )
+			continue;
+
+		QString tpmdev_spec = launch_args[ ix + 1 ];
+		if( ! tpmdev_spec.startsWith("emulator,") )
+			continue;
+
+		QStringList tpm_parts = tpmdev_spec.split( ',', QString::SkipEmptyParts );
+		QString chardev_id = valueFromOptionList( tpm_parts, "chardev" );
+		if( ! chardev_id.isEmpty() )
+			tpm_chardev_ids.insert( chardev_id );
+	}
+
+	for( int ix = 0; ix < launch_args.count() - 1; ix++ )
+	{
+		if( launch_args[ ix ] != "-chardev" )
+			continue;
+
+		QString chardev_spec = launch_args[ ix + 1 ];
+		if( ! chardev_spec.startsWith("socket,") )
+			continue;
+
+		QString socket_path;
+		QString socket_id;
+		QStringList spec_parts = chardev_spec.split( ',', QString::SkipEmptyParts );
+		socket_path = valueFromOptionList( spec_parts, "path" );
+		socket_id = valueFromOptionList( spec_parts, "id" );
+
+		if( socket_path.isEmpty() )
+			continue;
+
+		AQLaunch_Trace( "start-socket-wait",
+						QString("vm=%1 path=%2").arg(Machine_Name).arg(socket_path) );
+
+		bool socket_ready = false;
+		#ifdef Q_OS_WIN32
+			socket_ready = QFile::exists( socket_path );
+			if( ! socket_ready )
+			{
+				for( int wait_ix = 0; wait_ix < 50 && ! QFile::exists(socket_path); wait_ix++ )
+					QThread::msleep( 100 );
+				socket_ready = QFile::exists( socket_path );
+			}
+		#else
+			socket_ready = waitForUnixSocketReady( socket_path, 50, 100 );
+
+			if( ! socket_ready && ! socket_id.isEmpty() && tpm_chardev_ids.contains(socket_id) )
+			{
+				AQLaunch_Trace( "start-swtpm-autostart",
+								QString("vm=%1 id=%2 path=%3")
+									.arg(Machine_Name)
+									.arg(socket_id)
+									.arg(socket_path) );
+
+				QString swtpm_error;
+				if( startSwtpmSocketDaemon(socket_path, &swtpm_error) )
+				{
+					socket_ready = waitForUnixSocketReady( socket_path, 50, 100 );
+					AQLaunch_Trace( socket_ready ? "start-swtpm-autostart-ready" : "start-swtpm-autostart-timeout",
+										QString("vm=%1 id=%2 path=%3")
+											.arg(Machine_Name)
+											.arg(socket_id)
+											.arg(socket_path) );
+				}
+				else
+				{
+					AQLaunch_Trace( "start-swtpm-autostart-failed",
+									QString("vm=%1 id=%2 path=%3 error=%4")
+										.arg(Machine_Name)
+										.arg(socket_id)
+										.arg(socket_path)
+										.arg(swtpm_error) );
+				}
+			}
+		#endif
+
+		if( ! socket_ready )
+		{
+			AQGraphic_Error( "bool Virtual_Machine::Start()", tr("Error!"),
+						 tr("Required Unix socket is missing before QEMU launch:\n%1\n\n"
+							"Make sure your pre-launch command creates this socket and waits until it exists.")
+						 .arg(socket_path), false );
+			AQLaunch_Trace( "start-socket-missing",
+							QString("vm=%1 path=%2").arg(Machine_Name).arg(socket_path) );
+			Start_Snapshot_Tag = "";
+			Start_In_Progress = false;
+			return false;
+		}
+
+		AQLaunch_Trace( "start-socket-ready",
+						QString("vm=%1 path=%2").arg(Machine_Name).arg(socket_path) );
+	}
 
 	Last_Start_Command = launch_bin + " " + launch_args.join(" ");
 	Last_Start_Image_Paths = extractImagePathsFromArgs( launch_args );
