@@ -5974,7 +5974,37 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			
 			for( int ix = 0; ix < Boot_Order_List.count(); ix++ )
 			{
-				if( Boot_Order_List[ix].Enabled )
+				bool boot_device_available = false;
+				switch( Boot_Order_List[ix].Type )
+				{
+					case VM::Boot_From_FDA:
+						boot_device_available = FD0.Get_Enabled();
+						break;
+
+					case VM::Boot_From_FDB:
+						boot_device_available = FD1.Get_Enabled();
+						break;
+
+					case VM::Boot_From_HDD:
+						boot_device_available = HDA.Get_Enabled();
+						break;
+
+					case VM::Boot_From_CDROM:
+						boot_device_available = CD_ROM.Get_Enabled();
+						break;
+
+					case VM::Boot_From_Network1:
+					case VM::Boot_From_Network2:
+					case VM::Boot_From_Network3:
+					case VM::Boot_From_Network4:
+						boot_device_available = Use_Network;
+						break;
+
+					default:
+						break;
+				}
+
+				if( Boot_Order_List[ix].Enabled && boot_device_available )
 				{
 					     if( Boot_Order_List[ix].Type == VM::Boot_From_FDA ) bootStr += "a";
 					else if( Boot_Order_List[ix].Type == VM::Boot_From_FDB ) bootStr += "b";
@@ -5987,10 +6017,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				}
 			}
 			
-			bootStr.prepend( (bootStr.isEmpty() ? "" : "order=") );
-			bootStr += QString(bootStr.isEmpty() ? "" : ",") + "menu=" + QString(Show_Boot_Menu ? "on" : "off");
-			
-			Args << "-boot" << bootStr;
+			if( ! bootStr.isEmpty() )
+			{
+				bootStr.prepend( "order=" );
+				bootStr += ",menu=" + QString(Show_Boot_Menu ? "on" : "off");
+				Args << "-boot" << bootStr;
+			}
 		}
 		else if( onceBootDeviceIndex != -1 )
 		{
@@ -6005,10 +6037,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					 Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network3 ||
 					 Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network4 ) bootStr = "n";
 			
-			bootStr.prepend( (bootStr.isEmpty() ? "" : "order=") );
-			bootStr += QString(bootStr.isEmpty() ? "" : ",") + "menu=" + QString(Show_Boot_Menu ? "on" : "off");
-			
-			Args << "-boot" << bootStr;
+			if( ! bootStr.isEmpty() )
+			{
+				bootStr.prepend( "order=" );
+				bootStr += ",menu=" + QString(Show_Boot_Menu ? "on" : "off");
+				Args << "-boot" << bootStr;
+			}
 		}
 		else
 		{
