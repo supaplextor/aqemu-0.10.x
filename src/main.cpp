@@ -362,15 +362,17 @@ int AQEMU_Main::find_data_folders()
     if( settings->value("AQEMU_Data_Folder", "").toString().isEmpty() )
     {
         #ifdef Q_OS_WIN32
+        const QString appDir = QCoreApplication::applicationDirPath();
+        const QString shareAqemuSubdir = "/share/aqemu";
         QStringList dataDirs;
         dataDirs << QDir::currentPath()
-                 << QCoreApplication::applicationDirPath()
-                 << QDir::cleanPath(QCoreApplication::applicationDirPath() + "/../share/aqemu")
-                 << QDir::cleanPath(QCoreApplication::applicationDirPath() + "/share/aqemu");
+                 << appDir
+                 << QDir::cleanPath(appDir + "/.." + shareAqemuSubdir)
+                 << QDir::cleanPath(appDir + shareAqemuSubdir);
 
-        for( int dx = 0; dx < dataDirs.count(); ++dx )
+        for( int dirIndex = 0; dirIndex < dataDirs.count(); ++dirIndex )
         {
-            QDir dataDir( dataDirs[dx] );
+            QDir dataDir( dataDirs[dirIndex] );
 
             if( dataDir.exists("os_icons") &&
                 dataDir.exists("os_templates") )
