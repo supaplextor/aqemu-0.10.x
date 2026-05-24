@@ -6005,7 +6005,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					 Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network3 ||
 					 Boot_Order_List[onceBootDeviceIndex].Type == VM::Boot_From_Network4 ) bootStr = "n";
 			
-			bootStr.prepend( (bootStr.isEmpty() ? "" : "once=") );
+			bootStr.prepend( (bootStr.isEmpty() ? "" : "order=") );
 			bootStr += QString(bootStr.isEmpty() ? "" : ",") + "menu=" + QString(Show_Boot_Menu ? "on" : "off");
 			
 			Args << "-boot" << bootStr;
