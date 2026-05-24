@@ -993,7 +993,7 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	tmp_vm->Set_PFlash_File( ui.Edit_PFlash_File->text() );
 
 	// Additional QEMU Arguments
-	tmp_vm->Set_Pre_Exec_Command( ui_ao.Edit_Pre_Exec_Command->text() );
+	tmp_vm->Set_Pre_Exec_Command( ui_ao.Edit_Pre_Exec_Command->toPlainText() );
 	tmp_vm->Set_Additional_Args( ui_ao.Edit_Additional_Args->toPlainText() );
 
 	// Only_User_Args
@@ -1534,7 +1534,7 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	ui_ao.DTE_Start_Date->setDateTime( tmp_vm->Get_Start_Date() );
 
 	// Additional Arguments
-	ui_ao.Edit_Pre_Exec_Command->setText( tmp_vm->Get_Pre_Exec_Command() );
+	ui_ao.Edit_Pre_Exec_Command->setPlainText( tmp_vm->Get_Pre_Exec_Command() );
 	ui_ao.Edit_Additional_Args->setPlainText( tmp_vm->Get_Additional_Args() );
 
 	// Only_User_Args
