@@ -3618,6 +3618,7 @@ void Main_Window::on_actionCopy_triggered()
 	{
 		// Copy VM Object
         auto new_vm = new Virtual_Machine(*Get_Current_VM());
+		new_vm->Set_State( VM::VMS_Power_Off, true );
 
 		new_vm->Set_Machine_Name( copy_win.Get_New_VM_Name() );
 		new_vm->Set_VM_XML_File_Path( Get_Complete_VM_File_Path(copy_win.Get_New_VM_Name()) );
