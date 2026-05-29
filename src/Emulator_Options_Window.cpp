@@ -48,7 +48,7 @@ Emulator_Options_Window::Emulator_Options_Window( QWidget *parent )
 	Update_Info = false;
 
 	#ifdef Q_OS_WIN32
-	ui.RB_KVM->setEnabled( false );
+	// KVM-specific radio controls were removed from the UI.
 	#endif
 }
 
