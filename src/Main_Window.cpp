@@ -33,6 +33,7 @@
 #include <QValidator>
 #include <QPainter>
 #include <QStandardItem>
+#include <QSysInfo>
 #include <QtDBus>
 
 #include <memory>
@@ -67,6 +68,58 @@ QMap<QString, Available_Devices> System_Info::Emulator_QEMU_2_0;
 
 QList<VM_USB> System_Info::All_Host_USB;
 QList<VM_USB> System_Info::Used_Host_USB;
+
+namespace
+{
+QString Get_Host_Architecture()
+{
+    return QSysInfo::currentCpuArchitecture().toLower();
+}
+
+bool Is_Native_Computer_Type( const QString &qemu_name )
+{
+    const QString host_arch = Get_Host_Architecture();
+
+    if( host_arch == "x86_64" || host_arch == "amd64" )
+        return qemu_name == "qemu-system-x86_64" || qemu_name == "qemu-system-i386";
+
+    if( host_arch == "i386" || host_arch == "i486" || host_arch == "i586" ||
+        host_arch == "i686" || host_arch == "x86" )
+        return qemu_name == "qemu-system-i386";
+
+    if( host_arch == "aarch64" || host_arch == "arm64" )
+        return qemu_name == "qemu-system-aarch64" || qemu_name == "qemu-system-arm";
+
+    if( host_arch.startsWith("arm") )
+        return qemu_name == "qemu-system-arm";
+
+    if( host_arch == "riscv64" )
+        return qemu_name == "qemu-system-riscv64" || qemu_name == "qemu-system-riscv32";
+
+    if( host_arch == "riscv32" )
+        return qemu_name == "qemu-system-riscv32";
+
+    if( host_arch == "ppc64" || host_arch == "ppc64le" )
+        return qemu_name == "qemu-system-ppc64" || qemu_name == "qemu-system-ppc";
+
+    if( host_arch.startsWith("ppc") )
+        return qemu_name == "qemu-system-ppc";
+
+    if( host_arch == "sparc64" )
+        return qemu_name == "qemu-system-sparc64" || qemu_name == "qemu-system-sparc";
+
+    if( host_arch.startsWith("sparc") )
+        return qemu_name == "qemu-system-sparc";
+
+    if( host_arch == "s390x" )
+        return qemu_name == "qemu-system-s390x";
+
+    if( host_arch == "loongarch64" )
+        return qemu_name == "qemu-system-loongarch64";
+
+    return false;
+}
+}
 
 Main_Window::Main_Window( QWidget *parent )
 	: QMainWindow( parent )
@@ -4158,26 +4211,34 @@ void Main_Window::Update_Computer_Types()
     }
 
     auto model = qobject_cast<QStandardItemModel*>(ui.CB_Computer_Type->model());
+    QString first_native_text;
+    bool current_type_supported = !only_native;
+    int row = 0;
 
-    for ( int i = 0; i < model->rowCount(); i++)
+    for( QMap<QString, Available_Devices>::const_iterator devIter = current_devices.constBegin();
+         devIter != current_devices.constEnd() && row < model->rowCount();
+         ++devIter, ++row )
     {
-        auto item = model->item(i);
+        auto item = model->item(row);
+        const bool item_supported = !only_native || Is_Native_Computer_Type( devIter.value().System.QEMU_Name );
 
-        if ( item->text() == "IBM PC 64Bit" ) //FIXME: shouldn't be hardcoded
-        {
-            if (only_native)
-                ui.CB_Computer_Type->setCurrentText(item->text());
-            continue;
-        }
+        if( item_supported && first_native_text.isEmpty() )
+            first_native_text = item->text();
 
-        item->setFlags(only_native ? item->flags() & ~(Qt::ItemIsSelectable|Qt::ItemIsEnabled)
-                                         : (Qt::ItemIsSelectable|Qt::ItemIsEnabled));
+        if( item->text() == text )
+            current_type_supported = item_supported;
+
+        item->setFlags(item_supported ? (Qt::ItemIsSelectable|Qt::ItemIsEnabled)
+                                      : item->flags() & ~(Qt::ItemIsSelectable|Qt::ItemIsEnabled));
         // visually disable by greying out - works only if combobox has been
         // painted already and palette returns the wanted color
-        item->setData(only_native ? ui.CB_Computer_Type->palette().color(QPalette::Disabled, QPalette::Text)
-                          : QVariant(), // clear item data in order to use default color
+        item->setData(item_supported ? QVariant() // clear item data in order to use default color
+                                     : ui.CB_Computer_Type->palette().color(QPalette::Disabled, QPalette::Text),
                       Qt::TextColorRole);
     }
+
+    if( only_native && ! current_type_supported && ! first_native_text.isEmpty() )
+        ui.CB_Computer_Type->setCurrentText( first_native_text );
 
     ui.CB_Computer_Type->blockSignals(false);
 }
