@@ -4211,16 +4211,23 @@ void Main_Window::Update_Computer_Types()
     }
 
     auto model = qobject_cast<QStandardItemModel*>(ui.CB_Computer_Type->model());
+    if( model == nullptr )
+    {
+        ui.CB_Computer_Type->blockSignals(false);
+        return;
+    }
+
+    const int max_rows = qMin( model->rowCount(), current_devices.count() );
     QString first_native_text;
     bool current_type_supported = !only_native;
     int row = 0;
 
     for( QMap<QString, Available_Devices>::const_iterator devIter = current_devices.constBegin();
-         devIter != current_devices.constEnd() && row < model->rowCount();
+         devIter != current_devices.constEnd() && row < max_rows;
          ++devIter, ++row )
     {
         auto item = model->item(row);
-        if( item == NULL ) break;
+        if( item == nullptr ) break;
 
         bool item_supported = true;
         if( only_native )
