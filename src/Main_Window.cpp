@@ -4220,7 +4220,11 @@ void Main_Window::Update_Computer_Types()
          ++devIter, ++row )
     {
         auto item = model->item(row);
-        const bool item_supported = !only_native || Is_Native_Computer_Type( devIter.value().System.QEMU_Name );
+        if( item == NULL ) break;
+
+        bool item_supported = true;
+        if( only_native )
+            item_supported = Is_Native_Computer_Type( devIter.value().System.QEMU_Name );
 
         if( item_supported && first_native_text.isEmpty() )
             first_native_text = item->text();
