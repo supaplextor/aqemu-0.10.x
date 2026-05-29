@@ -35,11 +35,11 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <QStandardPaths>
+#include <QThread>
 
 #ifdef Q_OS_WIN32
 #include <windows.h>
 #else
-#include <QThread>
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
@@ -137,7 +137,6 @@ QString lsofForPath( const QString &path )
 	return out;
 }
 
-#ifndef Q_OS_WIN32
 QString stripQuotes( const QString &value )
 {
 	if( value.length() >= 2 )
@@ -163,6 +162,8 @@ QString valueFromOptionList( const QStringList &parts, const QString &key )
 
 	return "";
 }
+
+#ifndef Q_OS_WIN32
 
 bool startSwtpmSocketDaemon( const QString &socket_path, QString *error_text )
 {

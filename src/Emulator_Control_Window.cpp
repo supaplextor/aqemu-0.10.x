@@ -125,13 +125,13 @@ void Emulator_Control_Window::Create_Connect_Menu()
 	QString list = Cur_VM->Get_Removable_Devices_List();
 	
 	// Parse
-	QStringList devices = list.split( '\n', QString::SkipEmptyParts );
+	QStringList devices = list.split( '\n', Qt::SkipEmptyParts );
 	ui.menuConnectNew->clear();
 	Removable_Devies_Map.clear();
 	
 	for( int ix = 0; ix < devices.count()-1; ++ix )
 	{
-		QStringList curDev = devices[ ix ].split( ' ', QString::SkipEmptyParts );
+		QStringList curDev = devices[ ix ].split( ' ', Qt::SkipEmptyParts );
 		
 		// Data in curDev look like this:		
 		// ide0-hd0: removable=0 io-status=ok file=/tmp/vl.0x5urG backing_file=/mnt/os/vm/winxp_empty.qcow2 ro=0 drv=qcow2 encrypted=0
@@ -427,7 +427,7 @@ void Emulator_Control_Window::Connect_Device()
 	
 	if( act )
 	{
-		QStringList nameAndPath = act->data().toString().split( '\n', QString::SkipEmptyParts );
+		QStringList nameAndPath = act->data().toString().split( '\n', Qt::SkipEmptyParts );
 		if( nameAndPath.count() < 2 )
 		{
 			AQError( "void Emulator_Control_Window::Connect_Device()",

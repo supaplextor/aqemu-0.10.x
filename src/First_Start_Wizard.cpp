@@ -170,7 +170,7 @@ void First_Start_Wizard::on_Button_Find_Emulators_clicked()
 			if( sys_env[ix].startsWith("PATH=") )
 			{
 				QString tmp = sys_env[ ix ].remove( "PATH=" );
-				paths = tmp.split( ":", QString::SkipEmptyParts );
+								paths = tmp.split( ":", Qt::SkipEmptyParts );
 				break;
 			}
 		}
@@ -408,6 +408,12 @@ void First_Start_Wizard::on_Button_Edit_clicked()
 }
 
 #ifdef Q_OS_WIN32
+
+static QString Default_Add_Emulator_Version_Text()
+{
+	return Emulator_Version_To_String( VM::QEMU_2_0 );
+}
+
 void First_Start_Wizard::on_TB_Add_Emulator_Browse_clicked()
 {
 	QString emulatorDirPath = QFileDialog::getExistingDirectory( this, tr("Select QEMU emulator directory"),
@@ -426,9 +432,9 @@ void First_Start_Wizard::on_Button_Add_Emulator_Manual_Mode_clicked()
 {
 	Emulator_Options_Window *emulatorOptionsWin = new Emulator_Options_Window( this );
 
-	Emul.Set_Name( ui.CB_Add_Emulator_Version->currentText() );
+	Emul.Set_Name( Default_Add_Emulator_Version_Text() );
 	Emul.Set_Path( ui.Edit_Add_Emulator_Path->text() );
-	Emul.Set_Version( String_To_Emulator_Version(ui.CB_Add_Emulator_Version->currentText()) );
+	Emul.Set_Version( String_To_Emulator_Version(Default_Add_Emulator_Version_Text()) );
 	Emul.Set_Force_Version( true );
 	emulatorOptionsWin->Set_Emulator( Emul );
 
@@ -437,7 +443,7 @@ void First_Start_Wizard::on_Button_Add_Emulator_Manual_Mode_clicked()
 		Emul = emulatorOptionsWin->Get_Emulator();
 
 		ui.Edit_Add_Emulator_Path->setText( Emul.Get_Path() );
-		ui.CB_Add_Emulator_Version->setEditText( Emulator_Version_To_String(Emul.Get_Version()) );
+		ui.Label_Add_Emulator_Version->setText( tr("Emulator version: %1").arg(Emulator_Version_To_String(Emul.Get_Version())) );
 	}
 
 	delete emulatorOptionsWin;
@@ -529,9 +535,9 @@ bool First_Start_Wizard::Save_Settings()
 	// Check emulator
 	if( Emul.Get_Name().isEmpty() )
 	{
-		Emul.Set_Name( ui.CB_Add_Emulator_Version->currentText() );
+		Emul.Set_Name( Default_Add_Emulator_Version_Text() );
 		Emul.Set_Path( ui.Edit_Add_Emulator_Path->text() );
-		Emul.Set_Version( String_To_Emulator_Version(ui.CB_Add_Emulator_Version->currentText()) );
+		Emul.Set_Version( String_To_Emulator_Version(Default_Add_Emulator_Version_Text()) );
 		Emul.Set_Force_Version( true );
 		
 		bool foundEmulBinary = false;

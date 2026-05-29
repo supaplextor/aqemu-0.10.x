@@ -832,7 +832,190 @@ bool System_Info::Update_VM_Computers_List()
 	ad.Audio_Card_List = VM::Sound_Cards();
 	ad.PSO_Initial_Graphic_Mode = true;
 	System_Info::Emulator_QEMU_2_0[ "qemu-system-sparc64" ] = ad;
-	
+
+	// AArch64 (ARM 64-bit)
+	ad = Available_Devices();
+	ad.System = Device_Map( "AArch64 (ARM 64-bit)", "qemu-system-aarch64" );
+	{
+		QList<Device_Map> CPU_AArch64;
+		CPU_AArch64 << Device_Map( QObject::tr("Default"), "" );
+		CPU_AArch64 << Device_Map( "Cortex-A57", "cortex-a57" );
+		CPU_AArch64 << Device_Map( "Cortex-A72", "cortex-a72" );
+		CPU_AArch64 << Device_Map( "Cortex-A76", "cortex-a76" );
+		CPU_AArch64 << Device_Map( "Neoverse-N1", "neoverse-n1" );
+		CPU_AArch64 << Device_Map( "max", "max" );
+		ad.CPU_List += CPU_AArch64;
+	}
+	ad.Machine_List << Device_Map( QObject::tr("VirtIO (generic)"), "virt" );
+	ad.Machine_List << Device_Map( QObject::tr("Raspberry Pi 3B"), "raspi3b" );
+	ad.Machine_List << Device_Map( QObject::tr("SBSA Reference Board"), "sbsa-ref" );
+	ad.Network_Card_List += Network_Card_ARM;
+	ad.Network_Card_List << Device_Map( QObject::tr("e1000"), "e1000" );
+	ad.Network_Card_List << Device_Map( QObject::tr("virtio"), "virtio" );
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = VM::Sound_Cards();
+	ad.PSO_SMP_Count = 255;
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-aarch64" ] = ad;
+
+	// Alpha
+	ad = Available_Devices();
+	ad.System = Device_Map( "Alpha", "qemu-system-alpha" );
+	ad.Machine_List << Device_Map( QObject::tr("AlphaDP264 (Clipper)"), "clipper" );
+	ad.Network_Card_List << Device_Map( QObject::tr("Default"), "" );
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = VM::Sound_Cards();
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-alpha" ] = ad;
+
+	// AVR
+	ad = Available_Devices();
+	ad.System = Device_Map( "AVR", "qemu-system-avr" );
+	ad.Machine_List << Device_Map( QObject::tr("Arduino Duemilanove (ATmega168)"), "arduino-duemilanove" );
+	ad.Machine_List << Device_Map( QObject::tr("Arduino Mega 2560 Rev3 (ATmega2560)"), "arduino-mega-2560-v3" );
+	ad.Machine_List << Device_Map( QObject::tr("Arduino Uno Rev3 (ATmega328P)"), "arduino-uno-rev3" );
+	ad.Machine_List << Device_Map( QObject::tr("STK600 (ATmega2560)"), "stk600" );
+	ad.Network_Card_List << Device_Map( QObject::tr("Default"), "" );
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = VM::Sound_Cards();
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-avr" ] = ad;
+
+	// HPPA
+	ad = Available_Devices();
+	ad.System = Device_Map( "HPPA", "qemu-system-hppa" );
+	ad.Machine_List << Device_Map( QObject::tr("HP B160L (Artist)"), "B160L" );
+	ad.Machine_List << Device_Map( QObject::tr("HP C3700 (Visualize EG)"), "C3700" );
+	ad.Network_Card_List << Device_Map( QObject::tr("Default"), "" );
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = VM::Sound_Cards();
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-hppa" ] = ad;
+
+	// IBM PC 32-bit
+	ad = Available_Devices();
+	ad.System = Device_Map( "IBM PC 32-bit", "qemu-system-i386" );
+	ad.CPU_List += CPU_x86_v0_10_0;
+	ad.Machine_List += Machine_x86;
+	ad.Network_Card_List += Network_Card_v0_10_0;
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = Audio_Card_x86;
+	ad.Audio_Card_List.Audio_GUS = true;
+	ad.Audio_Card_List.Audio_AC97 = true;
+	ad.PSO_SMP_Count = 255;
+	ad.PSO_No_FB_Boot_Check = true;
+	ad.PSO_Win2K_Hack = true;
+	ad.PSO_No_ACPI = true;
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-i386" ] = ad;
+
+	// LoongArch64
+	ad = Available_Devices();
+	ad.System = Device_Map( "LoongArch64", "qemu-system-loongarch64" );
+	ad.Machine_List << Device_Map( QObject::tr("VirtIO (generic)"), "virt" );
+	ad.Network_Card_List << Device_Map( QObject::tr("Default"), "" );
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = VM::Sound_Cards();
+	ad.PSO_SMP_Count = 255;
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-loongarch64" ] = ad;
+
+	// MicroBlaze EL
+	ad = Available_Devices();
+	ad.System = Device_Map( "MicroBlaze EL", "qemu-system-microblazeel" );
+	ad.Machine_List << Device_Map( QObject::tr("Spartan 3ADSP1800"), "petalogix-s3adsp1800" );
+	ad.Network_Card_List << Device_Map( QObject::tr("xilinx-ethlite"), "xilinx-ethlite" );
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = VM::Sound_Cards();
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-microblazeel" ] = ad;
+
+	// OpenRISC
+	ad = Available_Devices();
+	ad.System = Device_Map( "OpenRISC", "qemu-system-or1k" );
+	ad.Machine_List << Device_Map( QObject::tr("or1k-sim"), "or1k-sim" );
+	ad.Network_Card_List << Device_Map( QObject::tr("Default"), "" );
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = VM::Sound_Cards();
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-or1k" ] = ad;
+
+	// RISC-V 32-bit
+	ad = Available_Devices();
+	ad.System = Device_Map( "RISC-V 32-bit", "qemu-system-riscv32" );
+	{
+		QList<Device_Map> Machine_RISCV;
+		Machine_RISCV << Device_Map( QObject::tr("VirtIO (generic)"), "virt" );
+		Machine_RISCV << Device_Map( QObject::tr("Spike"), "spike" );
+		Machine_RISCV << Device_Map( QObject::tr("SiFive HiFive1 RevB"), "sifive_e" );
+		Machine_RISCV << Device_Map( QObject::tr("SiFive HiFive Unleashed"), "sifive_u" );
+		ad.Machine_List += Machine_RISCV;
+	}
+	ad.Network_Card_List << Device_Map( QObject::tr("Default"), "" );
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = VM::Sound_Cards();
+	ad.PSO_SMP_Count = 255;
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-riscv32" ] = ad;
+
+	// RISC-V 64-bit
+	ad = Available_Devices();
+	ad.System = Device_Map( "RISC-V 64-bit", "qemu-system-riscv64" );
+	ad.Machine_List << Device_Map( QObject::tr("VirtIO (generic)"), "virt" );
+	ad.Machine_List << Device_Map( QObject::tr("Spike"), "spike" );
+	ad.Machine_List << Device_Map( QObject::tr("SiFive HiFive1 RevB"), "sifive_e" );
+	ad.Machine_List << Device_Map( QObject::tr("SiFive HiFive Unleashed"), "sifive_u" );
+	ad.Network_Card_List << Device_Map( QObject::tr("Default"), "" );
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = VM::Sound_Cards();
+	ad.PSO_SMP_Count = 255;
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-riscv64" ] = ad;
+
+	// Renesas RX
+	ad = Available_Devices();
+	ad.System = Device_Map( "Renesas RX", "qemu-system-rx" );
+	ad.Machine_List << Device_Map( QObject::tr("GDB Simulator (R5F562N7)"), "gdbsim-r5f562n7" );
+	ad.Machine_List << Device_Map( QObject::tr("GDB Simulator (R5F562N8)"), "gdbsim-r5f562n8" );
+	ad.Network_Card_List << Device_Map( QObject::tr("Default"), "" );
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = VM::Sound_Cards();
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-rx" ] = ad;
+
+	// S390x
+	ad = Available_Devices();
+	ad.System = Device_Map( "S390x", "qemu-system-s390x" );
+	ad.Machine_List << Device_Map( QObject::tr("S390 CCW VirtIO"), "s390-ccw-virtio" );
+	ad.Network_Card_List << Device_Map( QObject::tr("Default"), "" );
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = VM::Sound_Cards();
+	ad.PSO_SMP_Count = 255;
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-s390x" ] = ad;
+
+	// TriCore
+	ad = Available_Devices();
+	ad.System = Device_Map( "TriCore", "qemu-system-tricore" );
+	ad.Machine_List << Device_Map( QObject::tr("TriCore TESTBOARD"), "tricore_testboard" );
+	ad.Network_Card_List << Device_Map( QObject::tr("Default"), "" );
+	ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+	ad.Audio_Card_List = VM::Sound_Cards();
+	System_Info::Emulator_QEMU_2_0[ "qemu-system-tricore" ] = ad;
+
+	// Xtensa
+	ad = Available_Devices();
+	ad.System = Device_Map( "Xtensa", "qemu-system-xtensa" );
+	{
+		QList<Device_Map> Machine_Xtensa;
+		Machine_Xtensa << Device_Map( QObject::tr("Simulator"), "sim" );
+		Machine_Xtensa << Device_Map( QObject::tr("Avnet LX60/LX110/LX200"), "lx60" );
+		Machine_Xtensa << Device_Map( QObject::tr("KC705/XT-KC705"), "kc705" );
+		Machine_Xtensa << Device_Map( QObject::tr("ML605/XT-ML605"), "ml605" );
+		ad.Machine_List += Machine_Xtensa;
+
+		ad.Network_Card_List << Device_Map( QObject::tr("Default"), "" );
+		ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+		ad.Audio_Card_List = VM::Sound_Cards();
+		System_Info::Emulator_QEMU_2_0[ "qemu-system-xtensa" ] = ad;
+
+		// Xtensa EB
+		ad = Available_Devices();
+		ad.System = Device_Map( "Xtensa EB", "qemu-system-xtensaeb" );
+		ad.Machine_List += Machine_Xtensa;
+		ad.Network_Card_List << Device_Map( QObject::tr("Default"), "" );
+		ad.Video_Card_List += QEMU_Video_Cards_v0_10_0;
+		ad.Audio_Card_List = VM::Sound_Cards();
+		System_Info::Emulator_QEMU_2_0[ "qemu-system-xtensaeb" ] = ad;
+	}
 
 	ad.PSO_SMP_Cores = true;
 	ad.PSO_SMP_Threads = true;
@@ -1143,6 +1326,21 @@ QMap<QString, QString> System_Info::Find_QEMU_Binary_Files( const QString &path 
 	emulFiles[ "qemu-system-sh4eb" ] = "";
 	emulFiles[ "qemu-system-sparc" ] = "";
 	emulFiles[ "qemu-system-sparc64" ] = "";
+	emulFiles[ "qemu-system-aarch64" ] = "";
+	emulFiles[ "qemu-system-alpha" ] = "";
+	emulFiles[ "qemu-system-avr" ] = "";
+	emulFiles[ "qemu-system-hppa" ] = "";
+	emulFiles[ "qemu-system-i386" ] = "";
+	emulFiles[ "qemu-system-loongarch64" ] = "";
+	emulFiles[ "qemu-system-microblazeel" ] = "";
+	emulFiles[ "qemu-system-or1k" ] = "";
+	emulFiles[ "qemu-system-riscv32" ] = "";
+	emulFiles[ "qemu-system-riscv64" ] = "";
+	emulFiles[ "qemu-system-rx" ] = "";
+	emulFiles[ "qemu-system-s390x" ] = "";
+	emulFiles[ "qemu-system-tricore" ] = "";
+	emulFiles[ "qemu-system-xtensa" ] = "";
+	emulFiles[ "qemu-system-xtensaeb" ] = "";
 	
 	// path empty - this not error. It return empty bin files list
 	if( path.isEmpty() ) return emulFiles;
@@ -2863,10 +3061,11 @@ QStringList System_Info::Get_Host_FDD_List()
 		}
 		else
 		{
-			WCHAR *w = new WCHAR[ tmp.count() ];
+			WCHAR *w = new WCHAR[ tmp.count() + 1 ];
 			tmp.toWCharArray( w );
-			UINT uDriveType = GetDriveType( w );
-			delete w;
+			w[ tmp.count() ] = L'\0';
+			UINT uDriveType = GetDriveTypeW( w );
+			delete [] w;
 			
 			if( uDriveType == DRIVE_REMOVABLE )
 			{
@@ -2897,10 +3096,11 @@ QStringList System_Info::Get_Host_CDROM_List()
 		}
 		else
 		{
-			WCHAR *w = new WCHAR[ tmp.count() ];
+			WCHAR *w = new WCHAR[ tmp.count() + 1 ];
 			tmp.toWCharArray( w );
-			UINT uDriveType = GetDriveType( w );
-			delete w;
+			w[ tmp.count() ] = L'\0';
+			UINT uDriveType = GetDriveTypeW( w );
+			delete [] w;
 			
 			if( uDriveType == DRIVE_CDROM )
 			{

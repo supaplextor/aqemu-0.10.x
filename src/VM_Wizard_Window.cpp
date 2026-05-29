@@ -24,22 +24,30 @@
 #include <QDir>
 #include <QRegExp>
 #include <QFileDialog>
+#include <QSysInfo>
 
 #include "Utils.h"
 #include "VM_Wizard_Window.h"
 #include "System_Info.h"
 
-#include <sys/utsname.h>
 #include <stdio.h>
+
+#ifndef Q_OS_WIN32
+#include <sys/utsname.h>
+#endif
 
 // FIXME this may be Linux only so far
 // if you're porting this to something else
 // this is a place where a lot of ifdefs may be needed
 QString Get_My_System_Architecture()
 {
+#ifdef Q_OS_WIN32
+	return QSysInfo::currentCpuArchitecture();
+#else
     struct utsname name;
     uname(&name);
     return QString(name.machine);
+#endif
 }
 
 VM_Wizard_Window::VM_Wizard_Window( QWidget *parent )
