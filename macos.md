@@ -18,6 +18,20 @@ Install Xcode Command Line Tools (required for the C++ compiler):
 xcode-select --install
 ```
 
+## Intel and Apple Silicon Macs
+
+The commands in this document work for both Intel (`x86_64`) and Apple Silicon
+(`arm64`) Macs when building AQEMU natively on the same machine architecture.
+Homebrew chooses different default prefixes on each platform, but the use of
+`brew --prefix` in the examples keeps the commands portable.
+
+- Intel Homebrew prefix: `/usr/local`
+- Apple Silicon Homebrew prefix: `/opt/homebrew`
+
+If you specifically need an Intel build on an Apple Silicon Mac, use a Rosetta
+shell together with an `x86_64` Homebrew installation so that Qt 5 and the rest
+of the dependencies are installed for the Intel target as well.
+
 ---
 
 ## Option A: Meson + Ninja (recommended)
