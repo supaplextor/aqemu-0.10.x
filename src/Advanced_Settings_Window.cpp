@@ -252,7 +252,7 @@ Advanced_Settings_Window::Advanced_Settings_Window( QWidget *parent )
 	ui.Edit_VM_Folder->setText( QDir::toNativeSeparators(Settings.value("VM_Directory", QDir::homePath() + "/.aqemu/").toString()) );
 	
 	// Use New Emulator Control Removable Device Menu
-	ui.CH_Use_New_Device_Changer->setChecked( Settings.value("Use_New_Device_Changer", "no").toString() == "yes" );
+	ui.CH_Use_New_Device_Changer->setChecked( Settings.value("Use_New_Device_Changer", "yes").toString() == "yes" );
 	
 	// Find All Language Files (*.qm)
 	QDir data_dir( Settings.value("AQEMU_Data_Folder", "/usr/share/aqemu/").toString() );
