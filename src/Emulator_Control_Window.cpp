@@ -93,6 +93,7 @@ int Find_Storage_Device_Index_By_Monitor_Name( const QString &dev_name,
 		const VM::Device_Interface wanted_if = Parse_Interface_Name( iface_name, interface_ok );
 		const VM::Device_Media wanted_media = ( media_name == "cd" ? VM::DM_CD_ROM : VM::DM_Disk );
 		int fallback_index = -1;
+		int fallback_count = 0;
 		
 		for( int ix = 0; ix < dev_list.count(); ++ix )
 		{
@@ -114,13 +115,13 @@ int Find_Storage_Device_Index_By_Monitor_Name( const QString &dev_name,
 				return ix;
 			}
 			
-			if( fallback_index == -1 )
+			if( fallback_count == 0 )
 				fallback_index = ix;
-			else
-				fallback_index = -1;
+			
+			++fallback_count;
 		}
 		
-		return fallback_index;
+		return ( fallback_count == 1 ? fallback_index : -1 );
 	}
 	
 	QRegExp sd_rx( "^sd(\\d+)$" );
@@ -541,7 +542,7 @@ void Emulator_Control_Window::Connect_Device()
 		// Change device source
 		//emit Ready_Read_Command( QString("change %1 \"%2\"").arg(nameAndPath[0]).arg(nameAndPath[1]) );
 		Set_Device( nameAndPath[0], nameAndPath[1] );
-		// FIXME Save changet device source path
+		// FIXME Save changed device source path
 	}
 }
 
