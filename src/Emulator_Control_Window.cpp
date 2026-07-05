@@ -145,7 +145,13 @@ int Find_Storage_Device_Index_By_Monitor_Name( const QString &dev_name,
 
 bool Is_Removable_Device_Name( const QString &dev_name )
 {
-	return dev_name.contains("-cd") || dev_name.contains("floppy") || dev_name.startsWith("sd");
+	QRegExp floppy_rx( "^floppy\\d+$" );
+	QRegExp drive_rx( "^[a-zA-Z]+\\d+\\-cd\\d+$" );
+	QRegExp sd_rx( "^sd\\d+$" );
+	
+	return floppy_rx.exactMatch(dev_name) ||
+		   drive_rx.exactMatch(dev_name) ||
+		   sd_rx.exactMatch(dev_name);
 }
 }
 
@@ -164,7 +170,7 @@ Emulator_Control_Window::Emulator_Control_Window( QWidget *parent )
 			 this, SLOT(Get_Removable_Devices_List()) );
 	
 	// Use new removable device menu?
-	// FIXME update this settings after settings are changet
+	// FIXME update this settings after settings are changed
 	if( Settings.value("Use_New_Device_Changer", "yes").toString() == "yes" )
 		ui.menubar->removeAction( ui.menuConnect->menuAction() );
 	else
@@ -610,7 +616,7 @@ void Emulator_Control_Window::Eject_Device()
 		// Eject
 		emit Ready_Read_Command( QString("eject -f %1").arg(act->data().toString()) );
 		
-		// FIXME Save changet device source path
+		// FIXME Save changed device source path
 	}
 }
 
@@ -683,7 +689,7 @@ void Emulator_Control_Window::Set_Current_VM( Virtual_Machine *vm )
 	connect( Cur_VM, SIGNAL(QEMU_End()),
 			 this, SLOT(QEMU_Quit()) );
 	
-	// VM state changet
+	// VM state changed
 	connect( Cur_VM, SIGNAL(State_Changed(Virtual_Machine*,VM::VM_State)),
 			 this, SLOT(VM_State_Changed(Virtual_Machine*,VM::VM_State)) );
 	
