@@ -86,7 +86,7 @@ class Device_Manager_Widget: public QWidget
 	private:
         void Add_Floppy(VM_Storage_Device&,int);
         void Add_HDD(VM_HDD&,QString);
-
+        static QString CD_ROM_Label( int cdIdx, const QString &fileName );
 		bool Enabled;
 		
 		Properties_Window *pw;

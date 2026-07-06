@@ -214,6 +214,8 @@ class Virtual_Machine: public QObject
 		const VM_Storage_Device &Get_FD1() const;
 		void Set_FD1( const VM_Storage_Device &floppy );
 		
+		static const int MAX_CD_ROM_COUNT = 4;
+
 		VM_Storage_Device Get_CD_ROM() const;
 		void Set_CD_ROM( const VM_Storage_Device &cdrom );
 

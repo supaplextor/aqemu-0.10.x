@@ -1638,7 +1638,7 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 		VM_Element.appendChild( Dom_Element );
 		
 		// CD-ROMs: save primary as <CD_ROM>, additional as <CD_ROM_1>, <CD_ROM_2>, <CD_ROM_3>
-		for( int cdIdx = 0; cdIdx < CD_ROM_List.count() && cdIdx <= 3; ++cdIdx )
+		for( int cdIdx = 0; cdIdx < CD_ROM_List.count() && cdIdx < MAX_CD_ROM_COUNT; ++cdIdx )
 		{
 			const VM_Storage_Device &cd = CD_ROM_List[cdIdx];
 			QString tagName = (cdIdx == 0) ? "CD_ROM" : QString("CD_ROM_%1").arg(cdIdx);
@@ -4202,7 +4202,7 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 						CD_ROM_List.append( cd0 );
 
 						// Additional CD-ROMs: CD_ROM_1, CD_ROM_2, CD_ROM_3
-						for( int cdIdx = 1; cdIdx <= 3; ++cdIdx )
+						for( int cdIdx = 1; cdIdx < MAX_CD_ROM_COUNT; ++cdIdx )
 						{
 							QDomElement cdElem = Child_Element.firstChildElement(
 								QString("CD_ROM_%1").arg(cdIdx) );

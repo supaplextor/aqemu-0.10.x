@@ -31,6 +31,12 @@
 #include "Create_HDD_Image_Window.h"
 #include "System_Info.h"
 
+QString Device_Manager_Widget::CD_ROM_Label( int cdIdx, const QString &fileName )
+{
+	return QObject::tr("CD-ROM") + (cdIdx > 0 ? QString(" %1").arg(cdIdx + 1) : "")
+		+ " (" + fileName + ")";
+}
+
 Device_Manager_Widget::Device_Manager_Widget( QWidget *parent )
 	: QWidget( parent )
 {
@@ -154,7 +160,7 @@ void Device_Manager_Widget::Update_Enabled_Actions()
 		ui.TB_Add_Floppy->setEnabled( true );
 	}
 	
-	if( CD_ROM_List.count() >= 4 )
+	if( CD_ROM_List.count() >= Virtual_Machine::MAX_CD_ROM_COUNT )
 	{
 		ui.actionAdd_CD_ROM->setEnabled( false );
 		ui.TB_Add_CDROM->setEnabled( false );
@@ -271,8 +277,9 @@ void Device_Manager_Widget::Update_Enabled_Actions()
 				 !ui.Devices_List->currentItem()->data(512).toString().startsWith("cd_") )
 		{
 			// Extract cd index from key like "cd0", "cd1", etc.
+			const QString itemKey = ui.Devices_List->currentItem()->data(512).toString();
 			bool ok = false;
-			int cdIdx = ui.Devices_List->currentItem()->data(512).toString().mid(2).toInt(&ok);
+			int cdIdx = itemKey.mid(2).toInt(&ok);
 			const VM_Storage_Device *cd = (ok && cdIdx >= 0 && cdIdx < CD_ROM_List.count())
 				? &CD_ROM_List[cdIdx] : nullptr;
 
@@ -614,10 +621,10 @@ void Device_Manager_Widget::on_actionAdd_Floppy_triggered()
 
 void Device_Manager_Widget::on_actionAdd_CD_ROM_triggered()
 {
-	if( CD_ROM_List.count() >= 4 )
+	if( CD_ROM_List.count() >= Virtual_Machine::MAX_CD_ROM_COUNT )
 	{
 		AQGraphic_Warning( tr("Warning!"),
-						   tr("Maximum CD-ROM Disk Count is 4") );
+						   tr("Maximum CD-ROM Disk Count is %1").arg(Virtual_Machine::MAX_CD_ROM_COUNT) );
 		return;
 	}
 
@@ -640,8 +647,7 @@ void Device_Manager_Widget::on_actionAdd_CD_ROM_triggered()
 		CD_ROM_List.append( cd );
 
 		QListWidgetItem *cdit = new QListWidgetItem( QIcon(":/cdrom.png"),
-													 tr("CD-ROM") + (cdIdx > 0 ? QString(" %1").arg(cdIdx+1) : "") +
-													 " (" + dev_name + ")" , ui.Devices_List );
+													 CD_ROM_Label( cdIdx, dev_name ), ui.Devices_List );
 		cdit->setData( 512, QString("cd%1").arg(cdIdx) );
 
 		ui.Devices_List->addItem( cdit );
@@ -811,9 +817,8 @@ void Device_Manager_Widget::on_actionProperties_triggered()
 			if( CD_ROM_List[cdIdx] != pw->Get_CD_ROM() )
 			{
 				CD_ROM_List[cdIdx] = pw->Get_CD_ROM();
-				QString label = tr("CD-ROM") + (cdIdx > 0 ? QString(" %1").arg(cdIdx+1) : "")
-					+ " (" + CD_ROM_List[cdIdx].Get_File_Name() + ")";
-				ui.Devices_List->currentItem()->setText( label );
+				ui.Devices_List->currentItem()->setText(
+					CD_ROM_Label( cdIdx, CD_ROM_List[cdIdx].Get_File_Name() ) );
 				
 				emit Device_Changed();
 			}
@@ -984,17 +989,16 @@ void Device_Manager_Widget::on_actionDelete_triggered()
 				QString key = ui.Devices_List->item(ix)->data(512).toString();
 				if( key.startsWith("cd") && !key.startsWith("cd_") )
 				{
-					bool ok2 = false;
-					int idx = key.mid(2).toInt(&ok2);
-					if( ok2 && idx > cdIdx )
+					bool parseOk = false;
+					int idx = key.mid(2).toInt(&parseOk);
+					if( parseOk && idx > cdIdx )
 					{
 						ui.Devices_List->item(ix)->setData( 512, QString("cd%1").arg(idx - 1) );
 						int newIdx = idx - 1;
 						if( newIdx < CD_ROM_List.count() )
 						{
-							QString label = tr("CD-ROM") + (newIdx > 0 ? QString(" %1").arg(newIdx+1) : "")
-								+ " (" + CD_ROM_List[newIdx].Get_File_Name() + ")";
-							ui.Devices_List->item(ix)->setText( label );
+							ui.Devices_List->item(ix)->setText(
+								CD_ROM_Label( newIdx, CD_ROM_List[newIdx].Get_File_Name() ) );
 						}
 					}
 				}
@@ -1209,9 +1213,8 @@ void Device_Manager_Widget::Update_Icons()
 	for( int cdIdx = 0; cdIdx < CD_ROM_List.count(); ++cdIdx )
 	{
 		if( !CD_ROM_List[cdIdx].Get_Enabled() ) continue;
-		QString label = tr("CD-ROM") + (cdIdx > 0 ? QString(" %1").arg(cdIdx+1) : "")
-			+ " (" + CD_ROM_List[cdIdx].Get_File_Name() + ")";
-		QListWidgetItem *cdit = new QListWidgetItem( QIcon(":/cdrom.png"), label, ui.Devices_List );
+		QListWidgetItem *cdit = new QListWidgetItem( QIcon(":/cdrom.png"),
+			CD_ROM_Label( cdIdx, CD_ROM_List[cdIdx].Get_File_Name() ), ui.Devices_List );
 		cdit->setData( 512, QString("cd%1").arg(cdIdx) );
 		ui.Devices_List->addItem( cdit );
 	}
