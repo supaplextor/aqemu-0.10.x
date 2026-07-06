@@ -1638,6 +1638,7 @@ bool VM_Native_Storage_Device::Get_Native_Mode() const
 	if( UBoot ) return true;
 	if( UBus_Unit ) return true;
 	if( UCache ) return true;
+	if( UDiscard ) return true;
 	if( UFile_Path ) return true;
 	if( Uhdachs ) return true;
 	if( UIndex ) return true;
