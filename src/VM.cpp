@@ -331,7 +331,7 @@ Virtual_Machine::Virtual_Machine( const Virtual_Machine &vm )
 	// FDD/CD/DVD Tab
 	this->FD0 = vm.Get_FD0();
 	this->FD1 = vm.Get_FD1();
-	this->CD_ROM = vm.Get_CD_ROM();
+	this->CD_ROM_List = vm.Get_CD_ROM_List();
 	
 	// HDD Tab
 	this->HDA = vm.Get_HDA();
@@ -588,7 +588,7 @@ void Virtual_Machine::Shared_Constructor()
 	
 	FD0 = VM_Storage_Device();
 	FD1 = VM_Storage_Device();
-	CD_ROM = VM_Storage_Device();
+	CD_ROM_List.clear();
 	HDA = VM_HDD();
 	HDB = VM_HDD();
 	HDC = VM_HDD();
@@ -695,7 +695,7 @@ bool Virtual_Machine::operator==( const Virtual_Machine &vm ) const
 		this->No_Reboot == vm.Use_No_Reboot() &&
 		this->FD0 == vm.Get_FD0() &&
 		this->FD1 == vm.Get_FD1() &&
-		this->CD_ROM == vm.Get_CD_ROM() &&
+		this->CD_ROM_List == vm.Get_CD_ROM_List() &&
 		this->HDA == vm.Get_HDA() &&
 		this->HDB == vm.Get_HDB() &&
 		this->HDC == vm.Get_HDC() &&
@@ -927,7 +927,7 @@ Virtual_Machine &Virtual_Machine::operator=( const Virtual_Machine &vm )
 	// FDD/CD/DVD Tab
 	this->FD0 = vm.Get_FD0();
 	this->FD1 = vm.Get_FD1();
-	this->CD_ROM = vm.Get_CD_ROM();
+	this->CD_ROM_List = vm.Get_CD_ROM_List();
 	
 	// HDD Tab
 	this->HDA = vm.Get_HDA();
@@ -1567,7 +1567,7 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 		
 		VM_Element.appendChild( Dom_Element );
 		
-		// CD-ROM
+		// CD-ROM (template: save empty primary slot only)
 		Dom_Element = New_Dom_Document.createElement( "CD_ROM" );
 		
 		// Enabled
@@ -1637,28 +1637,49 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 		
 		VM_Element.appendChild( Dom_Element );
 		
-		// CD-ROM
-		Dom_Element = New_Dom_Document.createElement( "CD_ROM" );
-		
-		// Enabled
-		Sec_Element = New_Dom_Document.createElement( "Enabled" );
-		Dom_Element.appendChild( Sec_Element );
-		if( CD_ROM.Get_Enabled() ) Dom_Text = New_Dom_Document.createTextNode( "true" );
-		else Dom_Text = New_Dom_Document.createTextNode( "false" );
-		Sec_Element.appendChild( Dom_Text );
-		
-		// Image File Name
-		Sec_Element = New_Dom_Document.createElement( "File_Name" );
-		Dom_Element.appendChild( Sec_Element );
-		Dom_Text = New_Dom_Document.createTextNode( CD_ROM.Get_File_Name() );
-		Sec_Element.appendChild( Dom_Text );
-		
-		// Nativ Device
-        Sec_Element = New_Dom_Document.createElement( "Native_Device" );
-        Save_VM_Native_Storage_Device( New_Dom_Document, Sec_Element, CD_ROM.Get_Native_Device() );
-		Dom_Element.appendChild( Sec_Element );
-		
-		VM_Element.appendChild( Dom_Element );
+		// CD-ROMs: save primary as <CD_ROM>, additional as <CD_ROM_1>, <CD_ROM_2>, <CD_ROM_3>
+		for( int cdIdx = 0; cdIdx < CD_ROM_List.count() && cdIdx < MAX_CD_ROM_COUNT; ++cdIdx )
+		{
+			const VM_Storage_Device &cd = CD_ROM_List[cdIdx];
+			QString tagName = (cdIdx == 0) ? "CD_ROM" : QString("CD_ROM_%1").arg(cdIdx);
+			Dom_Element = New_Dom_Document.createElement( tagName );
+
+			// Enabled
+			Sec_Element = New_Dom_Document.createElement( "Enabled" );
+			Dom_Element.appendChild( Sec_Element );
+			Dom_Text = New_Dom_Document.createTextNode( cd.Get_Enabled() ? "true" : "false" );
+			Sec_Element.appendChild( Dom_Text );
+
+			// File Name
+			Sec_Element = New_Dom_Document.createElement( "File_Name" );
+			Dom_Element.appendChild( Sec_Element );
+			Dom_Text = New_Dom_Document.createTextNode( cd.Get_File_Name() );
+			Sec_Element.appendChild( Dom_Text );
+
+			// Native Device
+			Sec_Element = New_Dom_Document.createElement( "Native_Device" );
+			Save_VM_Native_Storage_Device( New_Dom_Document, Sec_Element, cd.Get_Native_Device() );
+			Dom_Element.appendChild( Sec_Element );
+
+			VM_Element.appendChild( Dom_Element );
+		}
+		if( CD_ROM_List.isEmpty() )
+		{
+			// Always write at least an empty <CD_ROM> for format consistency
+			Dom_Element = New_Dom_Document.createElement( "CD_ROM" );
+			Sec_Element = New_Dom_Document.createElement( "Enabled" );
+			Dom_Element.appendChild( Sec_Element );
+			Dom_Text = New_Dom_Document.createTextNode( "false" );
+			Sec_Element.appendChild( Dom_Text );
+			Sec_Element = New_Dom_Document.createElement( "File_Name" );
+			Dom_Element.appendChild( Sec_Element );
+			Dom_Text = New_Dom_Document.createTextNode( "" );
+			Sec_Element.appendChild( Dom_Text );
+			Sec_Element = New_Dom_Document.createElement( "Native_Device" );
+			Save_VM_Native_Storage_Device( New_Dom_Document, Sec_Element, VM_Native_Storage_Device() );
+			Dom_Element.appendChild( Sec_Element );
+			VM_Element.appendChild( Dom_Element );
+		}
 	}
 	
 	if( template_mode &&
@@ -4105,7 +4126,7 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 				FD1 = VM_Storage_Device( false, "" );
 				
 				// CD-ROM
-				CD_ROM = VM_Storage_Device( false, "" );
+				CD_ROM_List.clear();
 			}
 			else
 			{
@@ -4133,16 +4154,19 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 					else
 						FD1.Set_File_Name( Second_Element.firstChildElement("Image_File_Name").text() );
 					
-					// CD-ROM
-					CD_ROM = VM_Storage_Device();
-					
-					Second_Element = Child_Element.firstChildElement( "CD_ROM" );
-					CD_ROM.Set_Enabled( (Second_Element.firstChildElement("Enabled").text() == "true") );
-					
-					if( Second_Element.firstChildElement("Host_Device").text() == "true" )
-						CD_ROM.Set_File_Name( Second_Element.firstChildElement("Host_File_Name").text() );
-					else
-						CD_ROM.Set_File_Name( Second_Element.firstChildElement("Image_File_Name").text() );
+					// CD-ROM (old format, single drive)
+					CD_ROM_List.clear();
+					{
+						VM_Storage_Device cd0;
+						Second_Element = Child_Element.firstChildElement( "CD_ROM" );
+						cd0.Set_Enabled( (Second_Element.firstChildElement("Enabled").text() == "true") );
+
+						if( Second_Element.firstChildElement("Host_Device").text() == "true" )
+							cd0.Set_File_Name( Second_Element.firstChildElement("Host_File_Name").text() );
+						else
+							cd0.Set_File_Name( Second_Element.firstChildElement("Image_File_Name").text() );
+						CD_ROM_List.append( cd0 );
+					}
 				}
 				else
 				{
@@ -4164,14 +4188,33 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
                     Second_Element = Second_Element.firstChildElement( "Native_Device" );
                     FD1.Set_Native_Device( Load_VM_Native_Storage_Device(Second_Element) );
 					
-					// CD-ROM
-					CD_ROM = VM_Storage_Device();
+					// CD-ROMs: load primary <CD_ROM> and additional <CD_ROM_N> elements
+					CD_ROM_List.clear();
 					Second_Element = Child_Element.firstChildElement( "CD_ROM" );
-					CD_ROM.Set_Enabled( (Second_Element.firstChildElement("Enabled").text() == "true") );
-					CD_ROM.Set_File_Name( Second_Element.firstChildElement("File_Name").text() );
-					
-                    Second_Element = Second_Element.firstChildElement( "Native_Device" );
-                    CD_ROM.Set_Native_Device( Load_VM_Native_Storage_Device(Second_Element) );
+					if( !Second_Element.isNull() )
+					{
+						VM_Storage_Device cd0;
+						cd0.Set_Enabled( (Second_Element.firstChildElement("Enabled").text() == "true") );
+						cd0.Set_File_Name( Second_Element.firstChildElement("File_Name").text() );
+
+						QDomElement nativeElem = Second_Element.firstChildElement( "Native_Device" );
+						cd0.Set_Native_Device( Load_VM_Native_Storage_Device(nativeElem) );
+						CD_ROM_List.append( cd0 );
+
+						// Additional CD-ROMs: CD_ROM_1, CD_ROM_2, CD_ROM_3
+						for( int cdIdx = 1; cdIdx < MAX_CD_ROM_COUNT; ++cdIdx )
+						{
+							QDomElement cdElem = Child_Element.firstChildElement(
+								QString("CD_ROM_%1").arg(cdIdx) );
+							if( cdElem.isNull() ) break;
+							VM_Storage_Device cdN;
+							cdN.Set_Enabled( (cdElem.firstChildElement("Enabled").text() == "true") );
+							cdN.Set_File_Name( cdElem.firstChildElement("File_Name").text() );
+							nativeElem = cdElem.firstChildElement( "Native_Device" );
+							cdN.Set_Native_Device( Load_VM_Native_Storage_Device(nativeElem) );
+							CD_ROM_List.append( cdN );
+						}
+					}
 				}
 			}
 			
@@ -5773,32 +5816,45 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 	}
 	
-	// CD-ROM
-	if( CD_ROM.Get_Enabled() )
-    {
-        if( CD_ROM.Get_Native_Mode() )
-        {
-            // Testing for the interface type 'virtio-scsi'
-            VM::Device_Interface iftype = CD_ROM.Get_Native_Device().Get_Interface();
-            if (iftype == VM::DI_Virtio_SCSI)
-            {
+	// CD-ROMs: first uses -cdrom (legacy), additional use -drive if=ide,media=cdrom
+	for( int cdIdx = 0; cdIdx < CD_ROM_List.count(); ++cdIdx )
+	{
+		const VM_Storage_Device &cd = CD_ROM_List[cdIdx];
+		if( !cd.Get_Enabled() ) continue;
+
+		if( cd.Get_Native_Mode() )
+		{
+			VM::Device_Interface iftype = cd.Get_Native_Device().Get_Interface();
+			if( iftype == VM::DI_Virtio_SCSI )
 				has_virt_scsi = true;
-			}
-            StorageArgs << Build_Native_Device_Args( CD_ROM.Get_Native_Device(), Build_QEMU_Args_for_Tab_Info );
+			StorageArgs << Build_Native_Device_Args( cd.Get_Native_Device(), Build_QEMU_Args_for_Tab_Info );
 		}
 		else
 		{
-			if( QFile::exists(CD_ROM.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
+			if( QFile::exists(cd.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
-				if( Build_QEMU_Args_for_Script_Mode )
-					StorageArgs << "-cdrom" << "\"" + CD_ROM.Get_File_Name() + "\"";
+				if( cdIdx == 0 )
+				{
+					// Primary CD: use legacy -cdrom flag
+					if( Build_QEMU_Args_for_Script_Mode )
+						StorageArgs << "-cdrom" << "\"" + cd.Get_File_Name() + "\"";
+					else
+						StorageArgs << "-cdrom" << cd.Get_File_Name();
+				}
 				else
-					StorageArgs << "-cdrom" << CD_ROM.Get_File_Name();
+				{
+					// Additional CDs: use -drive if=ide,media=cdrom
+					QString driveArg = "if=ide,media=cdrom,file=";
+					driveArg += Build_QEMU_Args_for_Script_Mode
+						? "\"" + cd.Get_File_Name() + "\""
+						: cd.Get_File_Name();
+					StorageArgs << "-drive" << driveArg;
+				}
 			}
 			else
 			{
 				AQError( "QStringList Virtual_Machine::Build_QEMU_Args()",
-							QString("Image \"%1\" doesn't exist!").arg(CD_ROM.Get_File_Name()) );
+							QString("Image \"%1\" doesn't exist!").arg(cd.Get_File_Name()) );
 			}
 		}
 	}
@@ -5987,7 +6043,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					break;
 
 				case VM::Boot_From_CDROM:
-					boot_device_available = CD_ROM.Get_Enabled();
+					boot_device_available = !CD_ROM_List.isEmpty() && CD_ROM_List.first().Get_Enabled();
 					break;
 
 				case VM::Boot_From_Network1:
@@ -6030,7 +6086,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 						break;
 
 					case VM::Boot_From_CDROM:
-						boot_device_available = CD_ROM.Get_Enabled();
+						boot_device_available = !CD_ROM_List.isEmpty() && CD_ROM_List.first().Get_Enabled();
 						break;
 
 					case VM::Boot_From_Network1:
@@ -8638,14 +8694,29 @@ void Virtual_Machine::Set_FD1( const VM_Storage_Device &floppy )
 	FD1 = floppy;
 }
 
-const VM_Storage_Device &Virtual_Machine::Get_CD_ROM() const
+VM_Storage_Device Virtual_Machine::Get_CD_ROM() const
 {
-	return CD_ROM;
+	if( CD_ROM_List.isEmpty() )
+		return VM_Storage_Device();
+	return CD_ROM_List.first();
 }
 
 void Virtual_Machine::Set_CD_ROM( const VM_Storage_Device &cdrom )
 {
-	CD_ROM = cdrom;
+	if( CD_ROM_List.isEmpty() )
+		CD_ROM_List.append( cdrom );
+	else
+		CD_ROM_List[0] = cdrom;
+}
+
+const QList<VM_Storage_Device> &Virtual_Machine::Get_CD_ROM_List() const
+{
+	return CD_ROM_List;
+}
+
+void Virtual_Machine::Set_CD_ROM_List( const QList<VM_Storage_Device> &list )
+{
+	CD_ROM_List = list;
 }
 
 const VM_HDD &Virtual_Machine::Get_HDA() const
@@ -10359,8 +10430,7 @@ QString Virtual_Machine::GenerateHTMLInfoText(int info_mode)
              Get_Storage_Devices_List().count() > 0)) ||
 
         ( soph.either( Settings.value("Info/Show_CD", "yes").toString() == "yes" ) &&
-            (Get_CD_ROM().Get_Enabled() ||
-             Get_Storage_Devices_List().count() > 0)) ||
+            (!Get_CD_ROM_List().isEmpty() || Get_Storage_Devices_List().count() > 0)) ||
 
         ( soph.either( Settings.value("Info/Show_HDD", "yes").toString() == "yes" ) &&
             (Get_HDA().Get_Enabled() ||
@@ -10416,15 +10486,17 @@ QString Virtual_Machine::GenerateHTMLInfoText(int info_mode)
 
             if( soph.either ( Settings.value("Info/Show_CD", "yes").toString() == "yes" ) )
             {
-                if( Get_CD_ROM().Get_Enabled() )
+                const QList<VM_Storage_Device> &cdList = Get_CD_ROM_List();
+                for( int cdIdx = 0; cdIdx < cdList.count(); ++cdIdx )
                 {
+                    if( !cdList[cdIdx].Get_Enabled() ) continue;
                     cell = table->cellAt( table->rows()-1, 1 );
                     cell_cursor = cell.firstCursorPosition();
-                    cell_cursor.insertText( tr("CD/DVD-ROM:"), format );
+                    cell_cursor.insertText( cdIdx == 0 ? tr("CD/DVD-ROM:") : tr("CD/DVD-ROM %1:").arg(cdIdx+1), format );
 
                     cell = table->cellAt( table->rows()-1, 2 );
                     cell_cursor = cell.firstCursorPosition();
-                    fi = QFileInfo( Get_CD_ROM().Get_File_Name() );
+                    fi = QFileInfo( cdList[cdIdx].Get_File_Name() );
 
                     cell_cursor.insertText( fi.fileName(), format );
                     table->insertRows( table->rows(), 1 );

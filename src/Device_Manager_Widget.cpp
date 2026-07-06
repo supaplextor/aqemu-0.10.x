@@ -31,6 +31,12 @@
 #include "Create_HDD_Image_Window.h"
 #include "System_Info.h"
 
+QString Device_Manager_Widget::CD_ROM_Label( int cdIdx, const QString &fileName )
+{
+	return QObject::tr("CD-ROM") + (cdIdx > 0 ? QString(" %1").arg(cdIdx + 1) : "")
+		+ " (" + fileName + ")";
+}
+
 Device_Manager_Widget::Device_Manager_Widget( QWidget *parent )
 	: QWidget( parent )
 {
@@ -83,7 +89,7 @@ void Device_Manager_Widget::Set_VM( const Virtual_Machine &vm )
 	
 	Floppy1 = VM_Storage_Device( vm.Get_FD0() );
 	Floppy2 = VM_Storage_Device( vm.Get_FD1() );
-	CD_ROM = VM_Storage_Device( vm.Get_CD_ROM() );
+	CD_ROM_List = vm.Get_CD_ROM_List();
 	
 	HDA = VM_HDD( vm.Get_HDA() );
 	HDB = VM_HDD( vm.Get_HDB() );
@@ -154,7 +160,7 @@ void Device_Manager_Widget::Update_Enabled_Actions()
 		ui.TB_Add_Floppy->setEnabled( true );
 	}
 	
-	if( CD_ROM.Get_Enabled() )
+	if( CD_ROM_List.count() >= Virtual_Machine::MAX_CD_ROM_COUNT )
 	{
 		ui.actionAdd_CD_ROM->setEnabled( false );
 		ui.TB_Add_CDROM->setEnabled( false );
@@ -172,7 +178,7 @@ void Device_Manager_Widget::Update_Enabled_Actions()
 		ui.TB_Add_HDD->setEnabled( false );
 	}
 	else if( HDA.Get_Enabled() && HDB.Get_Enabled() &&
-			 HDD.Get_Enabled() && CD_ROM.Get_Enabled() )
+			 HDD.Get_Enabled() && !CD_ROM_List.isEmpty() && CD_ROM_List.first().Get_Enabled() )
 	{
 		ui.actionAdd_HDD->setEnabled( false );
 		ui.TB_Add_HDD->setEnabled( false );
@@ -267,8 +273,16 @@ void Device_Manager_Widget::Update_Enabled_Actions()
 				}
 			}
 		}
-		else if( ui.Devices_List->currentItem()->data(512).toString() == "cd" )
+		else if( ui.Devices_List->currentItem()->data(512).toString().startsWith("cd") &&
+				 !ui.Devices_List->currentItem()->data(512).toString().startsWith("cd_") )
 		{
+			// Extract cd index from key like "cd0", "cd1", etc.
+			const QString itemKey = ui.Devices_List->currentItem()->data(512).toString();
+			bool ok = false;
+			int cdIdx = itemKey.mid(2).toInt(&ok);
+			const VM_Storage_Device *cd = (ok && cdIdx >= 0 && cdIdx < CD_ROM_List.count())
+				? &CD_ROM_List[cdIdx] : nullptr;
+
 			ui.TB_Edit_Device->setEnabled( true );
 			ui.actionProperties->setEnabled( true );
 			
@@ -280,34 +294,37 @@ void Device_Manager_Widget::Update_Enabled_Actions()
 			
 			ui.TB_Quick_Format->setEnabled( false );
 			ui.actionQuick_Format->setEnabled( false );
-			
-			if( It_Host_Device(CD_ROM.Get_File_Name()) )
+
+			if( cd )
 			{
-				ui.Label_Connected_To->setText( tr("Type: Host Device") );
-			}
-			else
-			{
-				QFileInfo cd_img = QFileInfo( CD_ROM.Get_File_Name() );
-				
-				if( cd_img.exists() )
+				if( It_Host_Device(cd->Get_File_Name()) )
 				{
-					qint64 size_in_bytes = cd_img.size();
+					ui.Label_Connected_To->setText( tr("Type: Host Device") );
+				}
+				else
+				{
+					QFileInfo cd_img = QFileInfo( cd->Get_File_Name() );
 					
-					if( size_in_bytes <= 0 )
+					if( cd_img.exists() )
 					{
-						ui.Label_Connected_To->setText( tr("Type: Image") + "\n" +
-								tr("On Disk Size: ") + QString::number(0) + tr("MB") );
+						qint64 size_in_bytes = cd_img.size();
+						
+						if( size_in_bytes <= 0 )
+						{
+							ui.Label_Connected_To->setText( tr("Type: Image") + "\n" +
+									tr("On Disk Size: ") + QString::number(0) + tr("MB") );
+						}
+						else
+						{
+							ui.Label_Connected_To->setText( tr("Type: Image") + "\n" +
+									tr("On Disk Size: ") + QString::number((float)(size_in_bytes / 1024.0 / 1024.0), 'f', 2) + tr("MB") );
+						}
 					}
 					else
 					{
 						ui.Label_Connected_To->setText( tr("Type: Image") + "\n" +
-								tr("On Disk Size: ") + QString::number((float)(size_in_bytes / 1024.0 / 1024.0), 'f', 2) + tr("MB") );
+								tr("On Disk Size: ") + QString::number(0) + tr("MB") );
 					}
-				}
-				else
-				{
-					ui.Label_Connected_To->setText( tr("Type: Image") + "\n" +
-							tr("On Disk Size: ") + QString::number(0) + tr("MB") );
 				}
 			}
 		}
@@ -480,7 +497,8 @@ void Device_Manager_Widget::on_Devices_List_customContextMenuRequested( const QP
 			
 			Context_Menu->exec( ui.Devices_List->mapToGlobal(pos) );
 		}
-		else if( it->data(512).toString() == "cd" )
+		else if( it->data(512).toString().startsWith("cd") &&
+				 !it->data(512).toString().startsWith("cd_") )
 		{
 			Context_Menu = new QMenu( ui.Devices_List );
 			
@@ -603,35 +621,38 @@ void Device_Manager_Widget::on_actionAdd_Floppy_triggered()
 
 void Device_Manager_Widget::on_actionAdd_CD_ROM_triggered()
 {
-	if( ! CD_ROM.Get_Enabled() )
-	{
-		pw = new Properties_Window(this);
-		pw->Set_Current_Machine_Devices( Current_Machine_Devices );
-		pw->Set_CD_ROM( CD_ROM, tr("CD/DVD-ROM") );
-		
-		if( pw->exec() == QDialog::Accepted )
-		{
-			CD_ROM = pw->Get_CD_ROM();
-			CD_ROM.Set_Enabled( true );
-			
-			QString dev_name = CD_ROM.Get_File_Name();
-
-            if ( ! QFileInfo(dev_name).exists() )
-                return;
-			
-			QListWidgetItem *cdit = new QListWidgetItem( QIcon(":/cdrom.png"),
-														 tr("CD-ROM") + " (" + dev_name + ")" , ui.Devices_List );
-			cdit->setData( 512, "cd" );
-			
-			ui.Devices_List->addItem( cdit );
-			
-			emit Device_Changed();
-		}
-	}
-	else
+	if( CD_ROM_List.count() >= Virtual_Machine::MAX_CD_ROM_COUNT )
 	{
 		AQGraphic_Warning( tr("Warning!"),
-						   tr("Maximum CD-ROM Disk Count is 1") );
+						   tr("Maximum CD-ROM Disk Count is %1").arg(Virtual_Machine::MAX_CD_ROM_COUNT) );
+		return;
+	}
+
+	pw = new Properties_Window(this);
+	pw->Set_Current_Machine_Devices( Current_Machine_Devices );
+	VM_Storage_Device newCd;
+	pw->Set_CD_ROM( newCd, tr("CD/DVD-ROM") );
+
+	if( pw->exec() == QDialog::Accepted )
+	{
+		VM_Storage_Device cd = pw->Get_CD_ROM();
+		cd.Set_Enabled( true );
+
+		QString dev_name = cd.Get_File_Name();
+
+		if ( ! QFileInfo(dev_name).exists() )
+			return;
+
+		int cdIdx = CD_ROM_List.count();
+		CD_ROM_List.append( cd );
+
+		QListWidgetItem *cdit = new QListWidgetItem( QIcon(":/cdrom.png"),
+													 CD_ROM_Label( cdIdx, dev_name ), ui.Devices_List );
+		cdit->setData( 512, QString("cd%1").arg(cdIdx) );
+
+		ui.Devices_List->addItem( cdit );
+
+		emit Device_Changed();
 	}
 }
 
@@ -677,7 +698,7 @@ void Device_Manager_Widget::on_actionAdd_HDD_triggered()
 			Add_HDD(HDB,"B");
 		}
 	}
-	else if( HDC.Get_Enabled() == false && CD_ROM.Get_Enabled() == false )
+	else if( HDC.Get_Enabled() == false && CD_ROM_List.isEmpty() )
 	{
 		pw = new Properties_Window(this);
 		pw->Set_Current_Machine_Devices( Current_Machine_Devices );
@@ -775,11 +796,16 @@ void Device_Manager_Widget::on_actionProperties_triggered()
 			}
 		}
 	}
-	else if( ui.Devices_List->currentItem()->data(512).toString() == "cd" )
+	else if( ui.Devices_List->currentItem()->data(512).toString().startsWith("cd") &&
+			 !ui.Devices_List->currentItem()->data(512).toString().startsWith("cd_") )
 	{
+		bool ok = false;
+		int cdIdx = ui.Devices_List->currentItem()->data(512).toString().mid(2).toInt(&ok);
+		if( !ok || cdIdx < 0 || cdIdx >= CD_ROM_List.count() ) return;
+
 		pw = new Properties_Window(this);
 		pw->Set_Enabled( Enabled );
-		pw->Set_CD_ROM( CD_ROM, tr("CD/DVD-ROM") );
+		pw->Set_CD_ROM( CD_ROM_List[cdIdx], tr("CD/DVD-ROM") );
 		
 		if( ! Current_Machine_Devices )
 			AQError( "void Device_Manager_Widget::on_actionProperties_triggered()",
@@ -788,11 +814,11 @@ void Device_Manager_Widget::on_actionProperties_triggered()
 		
 		if( pw->exec() == QDialog::Accepted )
 		{
-			if( CD_ROM != pw->Get_CD_ROM() )
+			if( CD_ROM_List[cdIdx] != pw->Get_CD_ROM() )
 			{
-				CD_ROM = pw->Get_CD_ROM();
-				
-				ui.Devices_List->currentItem()->setText( tr("CD-ROM") + " (" + CD_ROM.Get_File_Name() + ")" );
+				CD_ROM_List[cdIdx] = pw->Get_CD_ROM();
+				ui.Devices_List->currentItem()->setText(
+					CD_ROM_Label( cdIdx, CD_ROM_List[cdIdx].Get_File_Name() ) );
 				
 				emit Device_Changed();
 			}
@@ -948,9 +974,39 @@ void Device_Manager_Widget::on_actionDelete_triggered()
 	{
 		Floppy2 = VM_Storage_Device();
 	}
-	else if( ui.Devices_List->currentItem()->data(512).toString() == "cd" )
+	else if( ui.Devices_List->currentItem()->data(512).toString().startsWith("cd") &&
+			 !ui.Devices_List->currentItem()->data(512).toString().startsWith("cd_") )
 	{
-		CD_ROM = VM_Storage_Device();
+		bool ok = false;
+		int cdIdx = ui.Devices_List->currentItem()->data(512).toString().mid(2).toInt(&ok);
+		if( ok && cdIdx >= 0 && cdIdx < CD_ROM_List.count() )
+		{
+			CD_ROM_List.removeAt( cdIdx );
+			ui.Devices_List->takeItem( ui.Devices_List->currentRow() );
+			// Renumber remaining cd items
+			for( int ix = 0; ix < ui.Devices_List->count(); ++ix )
+			{
+				QString key = ui.Devices_List->item(ix)->data(512).toString();
+				if( key.startsWith("cd") && !key.startsWith("cd_") )
+				{
+					bool parseOk = false;
+					int idx = key.mid(2).toInt(&parseOk);
+					if( parseOk && idx > cdIdx )
+					{
+						ui.Devices_List->item(ix)->setData( 512, QString("cd%1").arg(idx - 1) );
+						int newIdx = idx - 1;
+						if( newIdx < CD_ROM_List.count() )
+						{
+							ui.Devices_List->item(ix)->setText(
+								CD_ROM_Label( newIdx, CD_ROM_List[newIdx].Get_File_Name() ) );
+						}
+					}
+				}
+			}
+			emit Device_Changed();
+		}
+		Update_Enabled_Actions();
+		return;
 	}
 	else if( ui.Devices_List->currentItem()->data(512).toString() == "hda" )
 	{
@@ -1154,12 +1210,12 @@ void Device_Manager_Widget::Update_Icons()
 		ui.Devices_List->addItem( fdit );
 	}
 	
-	if( CD_ROM.Get_Enabled() )
+	for( int cdIdx = 0; cdIdx < CD_ROM_List.count(); ++cdIdx )
 	{
+		if( !CD_ROM_List[cdIdx].Get_Enabled() ) continue;
 		QListWidgetItem *cdit = new QListWidgetItem( QIcon(":/cdrom.png"),
-													 tr("CD-ROM") + " (" + CD_ROM.Get_File_Name() + ")" , ui.Devices_List );
-		cdit->setData( 512, "cd" );
-		
+			CD_ROM_Label( cdIdx, CD_ROM_List[cdIdx].Get_File_Name() ), ui.Devices_List );
+		cdit->setData( 512, QString("cd%1").arg(cdIdx) );
 		ui.Devices_List->addItem( cdit );
 	}
 	
