@@ -201,18 +201,18 @@ void Properties_Window::done(int r)
 		    {
 			    // Empty path means eject – allow it unconditionally.
 			    QDialog::done(r);
-                return;
+			    return;
 		    }
 		    if( ! QFile::exists(cdPath) )
 		    {
 			    AQGraphic_Warning( tr("Warning"), tr("Image file doesn't exist!") );
-                return;
+			    return;
 		    }
 		    else
 		    {
 			    Add_To_Recent_CD_Files( cdPath );
 			    QDialog::done(r);
-                return;
+			    return;
 		    }
 	    }
 	    else if( ui.GB_HDD->isEnabled() )
