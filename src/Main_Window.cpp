@@ -2337,18 +2337,30 @@ void Main_Window::on_CD_ROM_Change_Requested( int cdIdx, const VM_Storage_Device
 	if( state != VM::VMS_Running && state != VM::VMS_Pause ) return;
 
 	// Map CD-ROM index to QEMU monitor device name.
-	// The primary CD-ROM (-cdrom) is placed at ide1-cd0 by QEMU.
-	// Additional CD-ROMs (-drive if=ide,media=cdrom) occupy subsequent IDE slots.
+	// The primary CD-ROM (set via -cdrom) is always ide1-cd0 in QEMU (secondary master).
+	// Additional CD-ROMs added with -drive if=ide,media=cdrom are auto-assigned to the
+	// next available IDE slots: ide1-cd1 (secondary slave), ide2-cd0, ide2-cd1.
+	// This mapping covers VMs with up to four IDE CD-ROM drives.
 	static const char *monitorNames[] = { "ide1-cd0", "ide1-cd1", "ide2-cd0", "ide2-cd1" };
 	const int maxNames = static_cast<int>( sizeof(monitorNames) / sizeof(monitorNames[0]) );
-	QString monitorName = ( cdIdx >= 0 && cdIdx < maxNames )
-		? QString( monitorNames[cdIdx] ) : QString( monitorNames[0] );
+	if( cdIdx < 0 || cdIdx >= maxNames )
+	{
+		AQError( "void Main_Window::on_CD_ROM_Change_Requested()",
+				 QString("CD-ROM index %1 is out of range (max %2)").arg(cdIdx).arg(maxNames - 1) );
+		return;
+	}
+	QString monitorName = QString( monitorNames[cdIdx] );
+
+	// Escape backslashes and double-quotes in the path for the QEMU monitor command.
+	QString escapedPath = newCd.Get_File_Name();
+	escapedPath.replace( "\\", "\\\\" );
+	escapedPath.replace( "\"", "\\\"" );
 
 	// Execute_Emu_Ctl_Command is a private slot; invoke it via Qt's meta-object system.
 	QMetaObject::invokeMethod( cur_vm, "Execute_Emu_Ctl_Command", Qt::DirectConnection,
 							   Q_ARG(QString, "eject -f " + monitorName) );
 	QMetaObject::invokeMethod( cur_vm, "Execute_Emu_Ctl_Command", Qt::DirectConnection,
-							   Q_ARG(QString, "change " + monitorName + " \"" + newCd.Get_File_Name() + "\"") );
+							   Q_ARG(QString, "change " + monitorName + " \"" + escapedPath + "\"") );
 }
 
 // FIXME This will be rewritten in the future. Deleting and creating new tabs/layouts is not done optimally
