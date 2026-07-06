@@ -729,6 +729,9 @@ void Main_Window::Connect_Signals()
 	connect( Dev_Manager, SIGNAL(Device_Changed()),
 			 this, SLOT(VM_Changed()) );
 
+	connect( Dev_Manager, SIGNAL(CD_ROM_Change_Requested(int, const VM_Storage_Device&)),
+			 this, SLOT(on_CD_ROM_Change_Requested(int, const VM_Storage_Device&)) );
+
     connect( ui.SB_VNC_Display, SIGNAL(valueChanged(int)), this, SLOT(SB_VNC_Display_changed(int)));
     connect( ui.SB_VNC_Display_Port, SIGNAL(valueChanged(int)), this, SLOT(SB_VNC_Display_Port_changed(int)));
 
@@ -2177,6 +2180,7 @@ void Main_Window::Show_State_Current( Virtual_Machine *vm)
 			ui.actionPause->setChecked( false );
 
 			Set_Widgets_State( false );
+			Dev_Manager->Set_VM_Running( true );
 			break;
 
 		case VM::VMS_Power_Off:
@@ -2185,6 +2189,7 @@ void Main_Window::Show_State_Current( Virtual_Machine *vm)
 			ui.actionPause->setChecked( false );
 
 			Set_Widgets_State( true );
+			Dev_Manager->Set_VM_Running( false );
 			break;
 
 		case VM::VMS_Pause:
@@ -2193,6 +2198,7 @@ void Main_Window::Show_State_Current( Virtual_Machine *vm)
 			ui.actionPause->setChecked( true );
 
 			Set_Widgets_State( false );
+			Dev_Manager->Set_VM_Running( true );
 			break;
 
 		case VM::VMS_Saved:
@@ -2205,12 +2211,14 @@ void Main_Window::Show_State_Current( Virtual_Machine *vm)
 			ui.actionReset->setEnabled( true );
 
 			Set_Widgets_State( false );
+			Dev_Manager->Set_VM_Running( false );
 			break;
 
 		case VM::VMS_In_Error:
 		    setStateActionsEnabled( false );
 			ui.actionPause->setChecked( false );
 			Set_Widgets_State( false );
+			Dev_Manager->Set_VM_Running( false );
 
 			Update_Info_Text( 2 );
 			break;
@@ -2318,6 +2326,29 @@ void Main_Window::VM_Changed()
 
         delete tmp_vm;
     }
+}
+
+void Main_Window::on_CD_ROM_Change_Requested( int cdIdx, const VM_Storage_Device &newCd )
+{
+	Virtual_Machine *cur_vm = Get_Current_VM();
+	if( cur_vm == NULL ) return;
+
+	VM::VM_State state = cur_vm->Get_State();
+	if( state != VM::VMS_Running && state != VM::VMS_Pause ) return;
+
+	// Map CD-ROM index to QEMU monitor device name.
+	// The primary CD-ROM (-cdrom) is placed at ide1-cd0 by QEMU.
+	// Additional CD-ROMs (-drive if=ide,media=cdrom) occupy subsequent IDE slots.
+	static const char *monitorNames[] = { "ide1-cd0", "ide1-cd1", "ide2-cd0", "ide2-cd1" };
+	const int maxNames = static_cast<int>( sizeof(monitorNames) / sizeof(monitorNames[0]) );
+	QString monitorName = ( cdIdx >= 0 && cdIdx < maxNames )
+		? QString( monitorNames[cdIdx] ) : QString( monitorNames[0] );
+
+	// Execute_Emu_Ctl_Command is a private slot; invoke it via Qt's meta-object system.
+	QMetaObject::invokeMethod( cur_vm, "Execute_Emu_Ctl_Command", Qt::DirectConnection,
+							   Q_ARG(QString, "eject -f " + monitorName) );
+	QMetaObject::invokeMethod( cur_vm, "Execute_Emu_Ctl_Command", Qt::DirectConnection,
+							   Q_ARG(QString, "change " + monitorName + " \"" + newCd.Get_File_Name() + "\"") );
 }
 
 // FIXME This will be rewritten in the future. Deleting and creating new tabs/layouts is not done optimally

@@ -43,6 +43,7 @@ Device_Manager_Widget::Device_Manager_Widget( QWidget *parent )
 	ui.setupUi( this );
 	
 	Enabled = true;
+	VM_Running = false;
 	
 	HDA_Info = new HDD_Image_Info();
 	HDB_Info = new HDD_Image_Info();
@@ -144,6 +145,11 @@ void Device_Manager_Widget::Set_Enabled( bool on )
 	//ui.Label_Devices_List->setEnabled( on );
 	ui.Label_Information->setEnabled( on );
 	ui.Label_Connected_To->setEnabled( on );
+}
+
+void Device_Manager_Widget::Set_VM_Running( bool running )
+{
+	VM_Running = running;
 }
 
 void Device_Manager_Widget::Update_Enabled_Actions()
@@ -804,7 +810,7 @@ void Device_Manager_Widget::on_actionProperties_triggered()
 		if( !ok || cdIdx < 0 || cdIdx >= CD_ROM_List.count() ) return;
 
 		pw = new Properties_Window(this);
-		pw->Set_Enabled( Enabled );
+		pw->Set_Enabled( Enabled || VM_Running );
 		pw->Set_CD_ROM( CD_ROM_List[cdIdx], tr("CD/DVD-ROM") );
 		
 		if( ! Current_Machine_Devices )
@@ -821,6 +827,9 @@ void Device_Manager_Widget::on_actionProperties_triggered()
 					CD_ROM_Label( cdIdx, CD_ROM_List[cdIdx].Get_File_Name() ) );
 				
 				emit Device_Changed();
+				
+				if( VM_Running )
+					emit CD_ROM_Change_Requested( cdIdx, CD_ROM_List[cdIdx] );
 			}
 		}
 	}
