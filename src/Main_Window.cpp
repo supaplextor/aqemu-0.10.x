@@ -2359,8 +2359,22 @@ void Main_Window::on_CD_ROM_Change_Requested( int cdIdx, const VM_Storage_Device
 	// Execute_Emu_Ctl_Command is a private slot; invoke it via Qt's meta-object system.
 	QMetaObject::invokeMethod( cur_vm, "Execute_Emu_Ctl_Command", Qt::DirectConnection,
 							   Q_ARG(QString, "eject -f " + monitorName) );
-	QMetaObject::invokeMethod( cur_vm, "Execute_Emu_Ctl_Command", Qt::DirectConnection,
-							   Q_ARG(QString, "change " + monitorName + " \"" + escapedPath + "\"") );
+	if( !escapedPath.isEmpty() )
+	{
+		QMetaObject::invokeMethod( cur_vm, "Execute_Emu_Ctl_Command", Qt::DirectConnection,
+								   Q_ARG(QString, "change " + monitorName + " \"" + escapedPath + "\"") );
+	}
+
+	// Persist the ISO change to the VM config so the new media survives a restart.
+	QList<VM_Storage_Device> cdList = cur_vm->Get_CD_ROM_List();
+	if( cdIdx < cdList.count() )
+	{
+		cdList[cdIdx] = newCd;
+		cur_vm->Set_CD_ROM_List( cdList );
+		cur_vm->Save_VM();
+		// Re-evaluate unsaved UI changes now that the config is up to date.
+		VM_Changed();
+	}
 }
 
 // FIXME This will be rewritten in the future. Deleting and creating new tabs/layouts is not done optimally
