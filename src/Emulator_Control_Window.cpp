@@ -45,6 +45,116 @@
 #include "VM_Devices.h"
 #include "Service.h"
 
+namespace
+{
+VM::Device_Interface Parse_Interface_Name( const QString &name, bool &ok )
+{
+	ok = true;
+	
+	if( name == "ide" ) return VM::DI_IDE;
+	if( name == "scsi" ) return VM::DI_SCSI;
+	if( name == "sd" ) return VM::DI_SD;
+	
+	ok = false;
+	return VM::DI_IDE;
+}
+
+int Find_Storage_Device_Index_By_Monitor_Name( const QString &dev_name,
+											   const QList<VM_Native_Storage_Device> &dev_list )
+{
+	QRegExp floppy_rx( "^floppy(\\d+)$" );
+	if( floppy_rx.exactMatch(dev_name) )
+	{
+		bool ok = false;
+		int dev_index = floppy_rx.cap(1).toInt( &ok );
+		if( ! ok ) return -1;
+		
+		for( int ix = 0; ix < dev_list.count(); ++ix )
+		{
+			if( dev_list[ix].Get_Interface() != VM::DI_Floppy ) continue;
+			
+			if( dev_list[ix].Use_Bus_Unit() && dev_list[ix].Get_Unit() == dev_index ) return ix;
+			if( dev_list[ix].Use_Index() && dev_list[ix].Get_Index() == dev_index ) return ix;
+		}
+	}
+	
+	QRegExp drive_rx( "^([a-zA-Z]+)(\\d+)\\-([a-zA-Z]+)(\\d+)$" );
+	if( drive_rx.exactMatch(dev_name) )
+	{
+		const QString iface_name = drive_rx.cap(1).toLower();
+		const QString media_name = drive_rx.cap(3).toLower();
+		bool bus_ok = false;
+		bool unit_ok = false;
+		const int bus = drive_rx.cap(2).toInt( &bus_ok );
+		const int unit_or_index = drive_rx.cap(4).toInt( &unit_ok );
+		if( ! bus_ok || ! unit_ok ) return -1;
+		
+		bool interface_ok = false;
+		const VM::Device_Interface wanted_if = Parse_Interface_Name( iface_name, interface_ok );
+		const VM::Device_Media wanted_media = ( media_name == "cd" ? VM::DM_CD_ROM : VM::DM_Disk );
+		int fallback_index = -1;
+		int fallback_count = 0;
+		
+		for( int ix = 0; ix < dev_list.count(); ++ix )
+		{
+			if( dev_list[ix].Get_Media() != wanted_media ) continue;
+			
+			if( interface_ok && dev_list[ix].Get_Interface() != wanted_if ) continue;
+			
+			if( dev_list[ix].Use_Bus_Unit() &&
+				dev_list[ix].Get_Bus() == bus &&
+				dev_list[ix].Get_Unit() == unit_or_index )
+			{
+				return ix;
+			}
+			
+			if( dev_list[ix].Use_Index() &&
+				dev_list[ix].Get_Index() == unit_or_index &&
+				( ! dev_list[ix].Use_Bus_Unit() || dev_list[ix].Get_Bus() == bus ) )
+			{
+				return ix;
+			}
+			
+			if( fallback_count == 0 )
+				fallback_index = ix;
+			
+			++fallback_count;
+		}
+		
+		return ( fallback_count == 1 ? fallback_index : -1 );
+	}
+	
+	QRegExp sd_rx( "^sd(\\d+)$" );
+	if( sd_rx.exactMatch(dev_name) )
+	{
+		bool ok = false;
+		int dev_index = sd_rx.cap(1).toInt( &ok );
+		if( ! ok ) return -1;
+		
+		for( int ix = 0; ix < dev_list.count(); ++ix )
+		{
+			if( dev_list[ix].Get_Interface() != VM::DI_SD ) continue;
+			
+			if( dev_list[ix].Use_Bus_Unit() && dev_list[ix].Get_Unit() == dev_index ) return ix;
+			if( dev_list[ix].Use_Index() && dev_list[ix].Get_Index() == dev_index ) return ix;
+		}
+	}
+	
+	return -1;
+}
+
+bool Is_Removable_Device_Name( const QString &dev_name )
+{
+	QRegExp floppy_rx( "^floppy\\d+$" );
+	QRegExp drive_rx( "^[a-zA-Z]+\\d+\\-cd\\d+$" );
+	QRegExp sd_rx( "^sd\\d+$" );
+	
+	return floppy_rx.exactMatch(dev_name) ||
+		   drive_rx.exactMatch(dev_name) ||
+		   sd_rx.exactMatch(dev_name);
+}
+}
+
 Emulator_Control_Window::Emulator_Control_Window( QWidget *parent )
 	: QMainWindow( parent )
 {
@@ -60,8 +170,8 @@ Emulator_Control_Window::Emulator_Control_Window( QWidget *parent )
 			 this, SLOT(Get_Removable_Devices_List()) );
 	
 	// Use new removable device menu?
-	// FIXME update this settings after settings are changet
-	if( Settings.value("Use_New_Device_Changer", "no").toString() == "yes" )
+	// FIXME update this settings after settings are changed
+	if( Settings.value("Use_New_Device_Changer", "yes").toString() == "yes" )
 		ui.menubar->removeAction( ui.menuConnect->menuAction() );
 	else
 		ui.menubar->removeAction( ui.menuConnectNew->menuAction() );
@@ -438,7 +548,7 @@ void Emulator_Control_Window::Connect_Device()
 		// Change device source
 		//emit Ready_Read_Command( QString("change %1 \"%2\"").arg(nameAndPath[0]).arg(nameAndPath[1]) );
 		Set_Device( nameAndPath[0], nameAndPath[1] );
-		// FIXME Save changet device source path
+		// FIXME Save changed device source path
 	}
 }
 
@@ -504,9 +614,9 @@ void Emulator_Control_Window::Eject_Device()
 	if( act )
 	{
 		// Eject
-		emit Ready_Read_Command( QString("eject %1").arg(act->data().toString()) );
+		emit Ready_Read_Command( QString("eject -f %1").arg(act->data().toString()) );
 		
-		// FIXME Save changet device source path
+		// FIXME Save changed device source path
 	}
 }
 
@@ -579,7 +689,7 @@ void Emulator_Control_Window::Set_Current_VM( Virtual_Machine *vm )
 	connect( Cur_VM, SIGNAL(QEMU_End()),
 			 this, SLOT(QEMU_Quit()) );
 	
-	// VM state changet
+	// VM state changed
 	connect( Cur_VM, SIGNAL(State_Changed(Virtual_Machine*,VM::VM_State)),
 			 this, SLOT(VM_State_Changed(Virtual_Machine*,VM::VM_State)) );
 	
@@ -1579,6 +1689,11 @@ void Emulator_Control_Window::Set_Device( const QString &dev_name, const QString
 	else if( dev_name == "cdrom" ) new_dev_name = "ide1-cd0";
 	else new_dev_name = dev_name;
 	
+	if( Is_Removable_Device_Name(new_dev_name) )
+	{
+		emit Ready_Read_Command( "eject -f " + new_dev_name );
+	}
+	
 	emit Ready_Read_Command( "change " + new_dev_name + " \"" + path + "\"" );
 	
 	// Save new path
@@ -1587,93 +1702,26 @@ void Emulator_Control_Window::Set_Device( const QString &dev_name, const QString
 	else if( dev_name == "cdrom" ) Cur_VM->Set_CD_ROM( VM_Storage_Device(true, path) );
 	else
 	{
-		// Find device
-		if( dev_name.contains("-cd") ) // CD-ROM?
+		if( dev_name == "ide1-cd0" ) // Default CD-ROM drive
 		{
-			if( dev_name == "ide1-cd0" ) // Default CD-ROM drive
-			{
-				Cur_VM->Set_CD_ROM( VM_Storage_Device( true,
-													   path,
-													   Cur_VM->Get_CD_ROM().Get_Native_Mode(),
-													   Cur_VM->Get_CD_ROM().Get_Native_Device()) );
-			}
-			else
-			{
-				// Find CD-ROM in other storage devices
-				QList<VM_Native_Storage_Device> devList = Cur_VM->Get_Storage_Devices_List();
-				
-				int cdromCount = 0;
-				int deviceIndex = -1;
-				
-				for( int ix = 0; ix < devList.count(); ++ix )
-				{
-					if( devList[ix].Get_Media() == VM::DM_CD_ROM )
-					{
-						++cdromCount;
-						deviceIndex = ix;
-					}
-				}
-				
-				// Simple way finded device?
-				if( cdromCount == 1 && deviceIndex != -1 )
-				{
-					devList[ deviceIndex ].Set_File_Path( path );
-					Cur_VM->Set_Storage_Device( deviceIndex, devList[deviceIndex] );
-				}
-				else
-				{
-					// Strong way... FIXME
-				}
-			}
+			Cur_VM->Set_CD_ROM( VM_Storage_Device( true,
+												   path,
+												   Cur_VM->Get_CD_ROM().Get_Native_Mode(),
+												   Cur_VM->Get_CD_ROM().Get_Native_Device()) );
 		}
-		else if( dev_name.contains("floppy") ) // Floppy?
+		
+		QList<VM_Native_Storage_Device> devList = Cur_VM->Get_Storage_Devices_List();
+		int deviceIndex = Find_Storage_Device_Index_By_Monitor_Name( dev_name, devList );
+		
+		if( deviceIndex == -1 && dev_name != new_dev_name )
 		{
-			if( dev_name == "floppy0" )
-			{
-				Cur_VM->Set_FD0( VM_Storage_Device( true,
-													path,
-													Cur_VM->Get_FD0().Get_Native_Mode(),
-													Cur_VM->Get_FD0().Get_Native_Device()) );
-			}
-			else if( dev_name == "floppy1" )
-			{
-				Cur_VM->Set_FD1( VM_Storage_Device( true,
-													path,
-													Cur_VM->Get_FD1().Get_Native_Mode(),
-													Cur_VM->Get_FD1().Get_Native_Device()) );
-			}
-			else
-			{
-				// Find floppy in storage devices
-				QList<VM_Native_Storage_Device> devList = Cur_VM->Get_Storage_Devices_List();
-				
-				int floppyCount = 0;
-				int deviceIndex = -1;
-				
-				for( int ix = 0; ix < devList.count(); ++ix )
-				{
-					if( devList[ix].Get_Interface() == VM::DI_Floppy )
-					{
-						++floppyCount;
-						deviceIndex = ix;
-					}
-				}
-				
-				// Simple way finded device?
-				if( floppyCount == 1 && deviceIndex != -1 )
-				{
-					devList[ deviceIndex ].Set_File_Path( path );
-					Cur_VM->Set_Storage_Device( deviceIndex, devList[deviceIndex] );
-				}
-				else
-				{
-					// Strong way... FIXME
-				}
-			}
+			deviceIndex = Find_Storage_Device_Index_By_Monitor_Name( new_dev_name, devList );
 		}
-		else
+		
+		if( deviceIndex != -1 )
 		{
-			
+			devList[ deviceIndex ].Set_File_Path( path );
+			Cur_VM->Set_Storage_Device( deviceIndex, devList[deviceIndex] );
 		}
 	}
 }
