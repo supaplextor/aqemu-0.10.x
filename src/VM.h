@@ -214,8 +214,11 @@ class Virtual_Machine: public QObject
 		const VM_Storage_Device &Get_FD1() const;
 		void Set_FD1( const VM_Storage_Device &floppy );
 		
-		const VM_Storage_Device &Get_CD_ROM() const;
+		VM_Storage_Device Get_CD_ROM() const;
 		void Set_CD_ROM( const VM_Storage_Device &cdrom );
+
+		const QList<VM_Storage_Device> &Get_CD_ROM_List() const;
+		void Set_CD_ROM_List( const QList<VM_Storage_Device> &list );
 		
 		const VM_HDD &Get_HDA() const;
 		void Set_HDA( const VM_HDD &hdd );
@@ -543,7 +546,7 @@ class Virtual_Machine: public QObject
 		// storage devices
 		VM_Storage_Device FD0; // floppy 0
 		VM_Storage_Device FD1; // floppy 1
-		VM_Storage_Device CD_ROM; // cdrom device ide2
+		QList<VM_Storage_Device> CD_ROM_List; // cdrom devices (first maps to legacy -cdrom slot)
 		VM_HDD HDA; // ide0
 		VM_HDD HDB; // ide1
 		VM_HDD HDC; // ide2 if cdrom is enabled, hdc be disabled

@@ -45,7 +45,7 @@ class Device_Manager_Widget: public QWidget
 		
 		VM_Storage_Device Floppy1; // FD0
 		VM_Storage_Device Floppy2; // FD1
-		VM_Storage_Device CD_ROM; // cdrom device ide2
+		QList<VM_Storage_Device> CD_ROM_List; // cdrom devices (up to 4)
 		VM_HDD HDA; // ide0
 		VM_HDD HDB; // ide1
 		VM_HDD HDC; // ide2 if cdrom is enabled, hdc be disibled

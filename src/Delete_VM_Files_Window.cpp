@@ -149,15 +149,19 @@ void Delete_VM_Files_Window::Set_VM( Virtual_Machine *vm )
 		Add_To_Files_List( tmp );
 	}
 	
-	// CD-ROM
-	if( Path_Valid(vm->Get_CD_ROM().Get_File_Name()) )
+	// CD-ROMs
+	const QList<VM_Storage_Device> &cdList = vm->Get_CD_ROM_List();
+	for( int cdIdx = 0; cdIdx < cdList.count(); ++cdIdx )
 	{
-		tmp.Hard_Drive = false;
-		tmp.Name = tr( "CD-ROM" );
-		tmp.Path = vm->Get_CD_ROM().Get_File_Name();
-		
-		File_List_Items << tmp;
-		Add_To_Files_List( tmp );
+		if( Path_Valid(cdList[cdIdx].Get_File_Name()) )
+		{
+			tmp.Hard_Drive = false;
+			tmp.Name = cdIdx == 0 ? tr("CD-ROM") : tr("CD-ROM %1").arg(cdIdx+1);
+			tmp.Path = cdList[cdIdx].Get_File_Name();
+			
+			File_List_Items << tmp;
+			Add_To_Files_List( tmp );
+		}
 	}
 	
 	// HDA

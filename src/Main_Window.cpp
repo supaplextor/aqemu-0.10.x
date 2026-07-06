@@ -939,7 +939,7 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 
 	tmp_vm->Set_FD0( Dev_Manager->Floppy1 );
 	tmp_vm->Set_FD1( Dev_Manager->Floppy2 );
-	tmp_vm->Set_CD_ROM( Dev_Manager->CD_ROM );
+	tmp_vm->Set_CD_ROM_List( Dev_Manager->CD_ROM_List );
 
 	tmp_vm->Set_HDA( Dev_Manager->HDA );
 	tmp_vm->Set_HDB( Dev_Manager->HDB );
@@ -2645,20 +2645,23 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 		}
 	}
 
-	// CD-ROM
-	if( tmp_vm->Get_CD_ROM().Get_Enabled() )
+	// CD-ROMs
+	for( int cdIdx = 0; cdIdx < tmp_vm->Get_CD_ROM_List().count(); ++cdIdx )
 	{
-		if( ! QFile::exists(tmp_vm->Get_CD_ROM().Get_File_Name()) )
+		if( tmp_vm->Get_CD_ROM_List()[cdIdx].Get_Enabled() )
 		{
-			if( ! No_Device_Found("CD-ROM", tmp_vm->Get_CD_ROM().Get_File_Name(), VM::Boot_From_CDROM) )
+			if( ! QFile::exists(tmp_vm->Get_CD_ROM_List()[cdIdx].Get_File_Name()) )
 			{
-				return false;
-			}
-			else
-			{
-				VM_Storage_Device tmp_cd = tmp_vm->Get_CD_ROM();
-				tmp_cd.Set_Enabled( false );
-				tmp_vm->Set_CD_ROM( tmp_cd );
+				if( ! No_Device_Found("CD-ROM", tmp_vm->Get_CD_ROM_List()[cdIdx].Get_File_Name(), VM::Boot_From_CDROM) )
+				{
+					return false;
+				}
+				else
+				{
+					QList<VM_Storage_Device> cdList = tmp_vm->Get_CD_ROM_List();
+					cdList[cdIdx].Set_Enabled( false );
+					tmp_vm->Set_CD_ROM_List( cdList );
+				}
 			}
 		}
 	}
@@ -2924,7 +2927,7 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 					break;
 
 				case VM::Boot_From_CDROM:
-					if( tmp_vm->Get_CD_ROM().Get_Enabled() )
+					if( !tmp_vm->Get_CD_ROM_List().isEmpty() && tmp_vm->Get_CD_ROM_List().first().Get_Enabled() )
 						return true;
 					break;
 
