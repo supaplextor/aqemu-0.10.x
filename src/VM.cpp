@@ -5827,7 +5827,20 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			VM::Device_Interface iftype = cd.Get_Native_Device().Get_Interface();
 			if( iftype == VM::DI_Virtio_SCSI )
 				has_virt_scsi = true;
-			StorageArgs << Build_Native_Device_Args( cd.Get_Native_Device(), Build_QEMU_Args_for_Tab_Info );
+			// If no interface/index/bus/unit is explicitly configured, default to
+			// if=ide,index=2 (IDE secondary bus, master = traditional -cdrom position)
+			// to avoid conflicting with -hda (index=0, primary bus master) and
+			// -hdb (index=1, primary bus slave).
+			// A copy is made so we can inject defaults without altering the stored config.
+			VM_Native_Storage_Device nativeCd = cd.Get_Native_Device();
+			if( !nativeCd.Use_Interface() && !nativeCd.Use_Bus_Unit() && !nativeCd.Use_Index() )
+			{
+				nativeCd.Use_Interface( true );
+				nativeCd.Set_Interface( VM::DI_IDE );
+				nativeCd.Use_Index( true );
+				nativeCd.Set_Index( 2 );
+			}
+			StorageArgs << Build_Native_Device_Args( nativeCd, Build_QEMU_Args_for_Tab_Info );
 		}
 		else
 		{
