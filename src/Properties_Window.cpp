@@ -196,16 +196,23 @@ void Properties_Window::done(int r)
 	    }
 	    else if( ui.GB_CDROM->isEnabled() )
 	    {
-		    if( ! QFile::exists(ui.CB_CDROM_Devices->lineEdit()->text()) )
+		    QString cdPath = ui.CB_CDROM_Devices->lineEdit()->text();
+		    if( cdPath.isEmpty() )
+		    {
+			    // Empty path means eject – allow it unconditionally.
+			    QDialog::done(r);
+			    return;
+		    }
+		    if( ! QFile::exists(cdPath) )
 		    {
 			    AQGraphic_Warning( tr("Warning"), tr("Image file doesn't exist!") );
-                return;
+			    return;
 		    }
 		    else
 		    {
-			    Add_To_Recent_CD_Files( ui.CB_CDROM_Devices->lineEdit()->text() );
+			    Add_To_Recent_CD_Files( cdPath );
 			    QDialog::done(r);
-                return;
+			    return;
 		    }
 	    }
 	    else if( ui.GB_HDD->isEnabled() )
