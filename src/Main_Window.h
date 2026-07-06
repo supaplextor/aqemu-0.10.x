@@ -122,6 +122,7 @@ class Main_Window: public QMainWindow
 		void on_actionShow_QEMU_Arguments_triggered();
 		void on_actionCreate_Shell_Script_triggered();
 		void on_actionShow_QEMU_Error_Log_Window_triggered();
+		void on_CD_ROM_Change_Requested( int cdIdx, const VM_Storage_Device &newCd );
 		
 		void on_Tabs_currentChanged( int index );
 		

@@ -42,6 +42,7 @@ class Device_Manager_Widget: public QWidget
 		void Set_VM( const Virtual_Machine &vm );
 		
 		void Set_Enabled( bool on );
+		void Set_VM_Running( bool running );
 		
 		VM_Storage_Device Floppy1; // FD0
 		VM_Storage_Device Floppy2; // FD1
@@ -59,6 +60,7 @@ class Device_Manager_Widget: public QWidget
 		
 	signals:
 		void Device_Changed();
+		void CD_ROM_Change_Requested( int cdIdx, const VM_Storage_Device &newCd );
 	
 	private slots:
 		// For Context Menu
@@ -88,6 +90,7 @@ class Device_Manager_Widget: public QWidget
         void Add_HDD(VM_HDD&,QString);
         static QString CD_ROM_Label( int cdIdx, const QString &fileName );
 		bool Enabled;
+		bool VM_Running;
 		
 		Properties_Window *pw;
 		Ui::Device_Manager_Widget ui;
