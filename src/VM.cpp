@@ -5832,62 +5832,6 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 	}
 	
-	// CD-ROMs: first uses -cdrom (legacy), additional use -drive if=ide,media=cdrom
-	for( int cdIdx = 0; cdIdx < CD_ROM_List.count(); ++cdIdx )
-	{
-		const VM_Storage_Device &cd = CD_ROM_List[cdIdx];
-		if( !cd.Get_Enabled() ) continue;
-
-		if( cd.Get_Native_Mode() )
-		{
-			VM::Device_Interface iftype = cd.Get_Native_Device().Get_Interface();
-			if( iftype == VM::DI_Virtio_SCSI )
-				has_virt_scsi = true;
-			// If no interface/index/bus/unit is explicitly configured, default to
-			// if=ide,index=2 (IDE secondary bus, master = traditional -cdrom position)
-			// to avoid conflicting with -hda (index=0, primary bus master) and
-			// -hdb (index=1, primary bus slave).
-			// A copy is made so we can inject defaults without altering the stored config.
-			VM_Native_Storage_Device nativeCd = NativeDeviceWithFilePath( cd );
-			if( !nativeCd.Use_Interface() && !nativeCd.Use_Bus_Unit() && !nativeCd.Use_Index() )
-			{
-				nativeCd.Use_Interface( true );
-				nativeCd.Set_Interface( VM::DI_IDE );
-				nativeCd.Use_Index( true );
-				nativeCd.Set_Index( 2 );
-			}
-			StorageArgs << Build_Native_Device_Args( nativeCd, Build_QEMU_Args_for_Tab_Info );
-		}
-		else
-		{
-			if( QFile::exists(cd.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
-			{
-				if( cdIdx == 0 )
-				{
-					// Primary CD: use legacy -cdrom flag
-					if( Build_QEMU_Args_for_Script_Mode )
-						StorageArgs << "-cdrom" << "\"" + cd.Get_File_Name() + "\"";
-					else
-						StorageArgs << "-cdrom" << cd.Get_File_Name();
-				}
-				else
-				{
-					// Additional CDs: use -drive if=ide,media=cdrom
-					QString driveArg = "if=ide,media=cdrom,file=";
-					driveArg += Build_QEMU_Args_for_Script_Mode
-						? "\"" + cd.Get_File_Name() + "\""
-						: cd.Get_File_Name();
-					StorageArgs << "-drive" << driveArg;
-				}
-			}
-			else
-			{
-				AQError( "QStringList Virtual_Machine::Build_QEMU_Args()",
-							QString("Image \"%1\" doesn't exist!").arg(cd.Get_File_Name()) );
-			}
-		}
-	}
-	
 	// HDA
 	if( HDA.Get_Enabled() )
 	{
@@ -6012,6 +5956,63 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 	}
 	
+	// CD-ROMs: first uses -cdrom (legacy), additional use -drive if=ide,media=cdrom
+	// Placed after HDA/HDB/HDC/HDD so the cdrom drive is visible in the guest.
+	for( int cdIdx = 0; cdIdx < CD_ROM_List.count(); ++cdIdx )
+	{
+		const VM_Storage_Device &cd = CD_ROM_List[cdIdx];
+		if( !cd.Get_Enabled() ) continue;
+
+		if( cd.Get_Native_Mode() )
+		{
+			VM::Device_Interface iftype = cd.Get_Native_Device().Get_Interface();
+			if( iftype == VM::DI_Virtio_SCSI )
+				has_virt_scsi = true;
+			// If no interface/index/bus/unit is explicitly configured, default to
+			// if=ide,index=2 (IDE secondary bus, master = traditional -cdrom position)
+			// to avoid conflicting with -hda (index=0, primary bus master) and
+			// -hdb (index=1, primary bus slave).
+			// A copy is made so we can inject defaults without altering the stored config.
+			VM_Native_Storage_Device nativeCd = NativeDeviceWithFilePath( cd );
+			if( !nativeCd.Use_Interface() && !nativeCd.Use_Bus_Unit() && !nativeCd.Use_Index() )
+			{
+				nativeCd.Use_Interface( true );
+				nativeCd.Set_Interface( VM::DI_IDE );
+				nativeCd.Use_Index( true );
+				nativeCd.Set_Index( 2 );
+			}
+			StorageArgs << Build_Native_Device_Args( nativeCd, Build_QEMU_Args_for_Tab_Info );
+		}
+		else
+		{
+			if( QFile::exists(cd.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
+			{
+				if( cdIdx == 0 )
+				{
+					// Primary CD: use legacy -cdrom flag
+					if( Build_QEMU_Args_for_Script_Mode )
+						StorageArgs << "-cdrom" << "\"" + cd.Get_File_Name() + "\"";
+					else
+						StorageArgs << "-cdrom" << cd.Get_File_Name();
+				}
+				else
+				{
+					// Additional CDs: use -drive if=ide,media=cdrom
+					QString driveArg = "if=ide,media=cdrom,file=";
+					driveArg += Build_QEMU_Args_for_Script_Mode
+						? "\"" + cd.Get_File_Name() + "\""
+						: cd.Get_File_Name();
+					StorageArgs << "-drive" << driveArg;
+				}
+			}
+			else
+			{
+				AQError( "QStringList Virtual_Machine::Build_QEMU_Args()",
+							QString("Image \"%1\" doesn't exist!").arg(cd.Get_File_Name()) );
+			}
+		}
+	}
+
 	// Storage Devices
 	if( Current_Emulator_Devices.PSO_Drive &&
 		Storage_Devices.count() > 0 )
