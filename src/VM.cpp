@@ -5524,6 +5524,20 @@ bool Virtual_Machine::Save_VM( const QString &file_name )
 	return Create_VM_File( file_name, false );
 }
 
+// Helper: return a copy of the native device from a VM_Storage_Device, ensuring
+// the file path is populated from the parent device's File_Name when the native
+// device does not already have Use_File_Path() set.
+static VM_Native_Storage_Device NativeDeviceWithFilePath( const VM_Storage_Device &storageDevice )
+{
+	VM_Native_Storage_Device nd = storageDevice.Get_Native_Device();
+	if( !nd.Use_File_Path() && !storageDevice.Get_File_Name().isEmpty() )
+	{
+		nd.Use_File_Path( true );
+		nd.Set_File_Path( storageDevice.Get_File_Name() );
+	}
+	return nd;
+}
+
 QStringList Virtual_Machine::Build_QEMU_Args()
 {
 	QStringList Args;
@@ -5761,12 +5775,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
         if( FD0.Get_Native_Mode() )
 		{
-			VM_Native_Storage_Device nativeFd0 = FD0.Get_Native_Device();
-			if( !nativeFd0.Use_File_Path() && !FD0.Get_File_Name().isEmpty() )
-			{
-				nativeFd0.Use_File_Path( true );
-				nativeFd0.Set_File_Path( FD0.Get_File_Name() );
-			}
+			VM_Native_Storage_Device nativeFd0 = NativeDeviceWithFilePath( FD0 );
 			// Testing for 'virtio-scsi' interface type
             VM::Device_Interface iftype = nativeFd0.Get_Interface();
 			if (iftype == VM::DI_Virtio_SCSI)
@@ -5797,12 +5806,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
         if( FD1.Get_Native_Mode() )
         {
-			VM_Native_Storage_Device nativeFd1 = FD1.Get_Native_Device();
-			if( !nativeFd1.Use_File_Path() && !FD1.Get_File_Name().isEmpty() )
-			{
-				nativeFd1.Use_File_Path( true );
-				nativeFd1.Set_File_Path( FD1.Get_File_Name() );
-			}
+			VM_Native_Storage_Device nativeFd1 = NativeDeviceWithFilePath( FD1 );
             // Testing for the interface type 'virtio-scsi'
             VM::Device_Interface iftype = nativeFd1.Get_Interface();
             if (iftype == VM::DI_Virtio_SCSI)
@@ -5844,12 +5848,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			// to avoid conflicting with -hda (index=0, primary bus master) and
 			// -hdb (index=1, primary bus slave).
 			// A copy is made so we can inject defaults without altering the stored config.
-			VM_Native_Storage_Device nativeCd = cd.Get_Native_Device();
-			if( !nativeCd.Use_File_Path() && !cd.Get_File_Name().isEmpty() )
-			{
-				nativeCd.Use_File_Path( true );
-				nativeCd.Set_File_Path( cd.Get_File_Name() );
-			}
+			VM_Native_Storage_Device nativeCd = NativeDeviceWithFilePath( cd );
 			if( !nativeCd.Use_Interface() && !nativeCd.Use_Bus_Unit() && !nativeCd.Use_Index() )
 			{
 				nativeCd.Use_Interface( true );
@@ -5894,12 +5893,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
         if( HDA.Get_Native_Mode() )
         {
-			VM_Native_Storage_Device nativeHda = HDA.Get_Native_Device();
-			if( !nativeHda.Use_File_Path() && !HDA.Get_File_Name().isEmpty() )
-			{
-				nativeHda.Use_File_Path( true );
-				nativeHda.Set_File_Path( HDA.Get_File_Name() );
-			}
+			VM_Native_Storage_Device nativeHda = NativeDeviceWithFilePath( HDA );
             // Testing for the interface type 'virtio-scsi'
             VM::Device_Interface iftype = nativeHda.Get_Interface();
             if (iftype == VM::DI_Virtio_SCSI)
@@ -5930,12 +5924,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
         if( HDB.Get_Native_Mode() )
         {
-			VM_Native_Storage_Device nativeHdb = HDB.Get_Native_Device();
-			if( !nativeHdb.Use_File_Path() && !HDB.Get_File_Name().isEmpty() )
-			{
-				nativeHdb.Use_File_Path( true );
-				nativeHdb.Set_File_Path( HDB.Get_File_Name() );
-			}
+			VM_Native_Storage_Device nativeHdb = NativeDeviceWithFilePath( HDB );
             // Testing for the interface type 'virtio-scsi'
             VM::Device_Interface iftype = nativeHdb.Get_Interface();
             if (iftype == VM::DI_Virtio_SCSI)
@@ -5966,12 +5955,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
         if( HDC.Get_Native_Mode() )
         {
-			VM_Native_Storage_Device nativeHdc = HDC.Get_Native_Device();
-			if( !nativeHdc.Use_File_Path() && !HDC.Get_File_Name().isEmpty() )
-			{
-				nativeHdc.Use_File_Path( true );
-				nativeHdc.Set_File_Path( HDC.Get_File_Name() );
-			}
+			VM_Native_Storage_Device nativeHdc = NativeDeviceWithFilePath( HDC );
             // Testing for the interface type 'virtio-scsi'
             VM::Device_Interface iftype = nativeHdc.Get_Interface();
             if (iftype == VM::DI_Virtio_SCSI)
@@ -6002,12 +5986,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	{
         if( HDD.Get_Native_Mode() )
         {
-			VM_Native_Storage_Device nativeHdd = HDD.Get_Native_Device();
-			if( !nativeHdd.Use_File_Path() && !HDD.Get_File_Name().isEmpty() )
-			{
-				nativeHdd.Use_File_Path( true );
-				nativeHdd.Set_File_Path( HDD.Get_File_Name() );
-			}
+			VM_Native_Storage_Device nativeHdd = NativeDeviceWithFilePath( HDD );
             // Testing for the interface type 'virtio-scsi'
             VM::Device_Interface iftype = nativeHdd.Get_Interface();
             if (iftype == VM::DI_Virtio_SCSI)
