@@ -1600,6 +1600,8 @@ VM_Native_Storage_Device::VM_Native_Storage_Device()
 	AIO = "threads";
 	UBoot = false;
 	Boot = false;
+	UDiscard = false;
+	Discard = false;
 }
 
 VM_Native_Storage_Device::VM_Native_Storage_Device( const VM_Native_Storage_Device &sd )

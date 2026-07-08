@@ -5110,7 +5110,7 @@ VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const Q
 	tmp_device.Set_Bus( Second_Element.firstChildElement("Bus").text().toInt() );
 	
 	// Unit
-	tmp_device.Set_Bus( Second_Element.firstChildElement("Unit").text().toInt() );
+	tmp_device.Set_Unit( Second_Element.firstChildElement("Unit").text().toInt() );
 	
 	// Use Index
 	tmp_device.Use_Index( Second_Element.firstChildElement("Use_Index").text() == "true" );
@@ -5125,9 +5125,9 @@ VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const Q
 	QString media_str = Second_Element.firstChildElement( "Media" ).text();
 	
 	if( media_str == "Disk" )
-		tmp_device.Set_Index( VM::DM_Disk );
+		tmp_device.Set_Media( VM::DM_Disk );
 	else if( media_str == "CD_ROM" )
-		tmp_device.Set_Index( VM::DM_CD_ROM );
+		tmp_device.Set_Media( VM::DM_CD_ROM );
 	else if( media_str == "" ) ; // No value
 	else
 	{
@@ -5148,7 +5148,7 @@ VM_Native_Storage_Device Virtual_Machine::Load_VM_Native_Storage_Device( const Q
 	tmp_device.Set_Secs( Second_Element.firstChildElement("Secs").text().toULongLong() );
 	
 	// Trans
-	tmp_device.Set_Cyls( Second_Element.firstChildElement("Trans").text().toULongLong() );
+	tmp_device.Set_Trans( Second_Element.firstChildElement("Trans").text().toULongLong() );
 	
 	// Use Snapshot
 	tmp_device.Use_Snapshot( Second_Element.firstChildElement("Use_Snapshot").text() == "true" );
@@ -5958,6 +5958,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	
 	// CD-ROMs: first uses -cdrom (legacy), additional use -drive if=ide,media=cdrom
 	// Placed after HDA/HDB/HDC/HDD so the cdrom drive is visible in the guest.
+	int next_auto_ide_cd_index = 2;
 	for( int cdIdx = 0; cdIdx < CD_ROM_List.count(); ++cdIdx )
 	{
 		const VM_Storage_Device &cd = CD_ROM_List[cdIdx];
@@ -5965,13 +5966,24 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 
 		if( cd.Get_Native_Mode() )
 		{
+			if( cdIdx == 0 )
+			{
+				// Keep the first IDE optical device on QEMU's legacy -cdrom path.
+				// This yields a stable ide1-cd0 device and avoids index collisions.
+				if( Build_QEMU_Args_for_Script_Mode )
+					StorageArgs << "-cdrom" << "\"" + cd.Get_File_Name() + "\"";
+				else
+					StorageArgs << "-cdrom" << cd.Get_File_Name();
+
+				next_auto_ide_cd_index = 3;
+				continue;
+			}
+
 			VM::Device_Interface iftype = cd.Get_Native_Device().Get_Interface();
 			if( iftype == VM::DI_Virtio_SCSI )
 				has_virt_scsi = true;
 			// If no interface/index/bus/unit is explicitly configured, default to
-			// if=ide,index=2 (IDE secondary bus, master = traditional -cdrom position)
-			// to avoid conflicting with -hda (index=0, primary bus master) and
-			// -hdb (index=1, primary bus slave).
+			// an unused IDE CD slot (2, then 3) to avoid collisions.
 			// A copy is made so we can inject defaults without altering the stored config.
 			VM_Native_Storage_Device nativeCd = NativeDeviceWithFilePath( cd );
 			if( !nativeCd.Use_Interface() && !nativeCd.Use_Bus_Unit() && !nativeCd.Use_Index() )
@@ -5979,7 +5991,11 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 				nativeCd.Use_Interface( true );
 				nativeCd.Set_Interface( VM::DI_IDE );
 				nativeCd.Use_Index( true );
-				nativeCd.Set_Index( 2 );
+				nativeCd.Set_Index( next_auto_ide_cd_index );
+				if( next_auto_ide_cd_index < 3 )
+					next_auto_ide_cd_index = 3;
+				else
+					next_auto_ide_cd_index++;
 			}
 			StorageArgs << Build_Native_Device_Args( nativeCd, Build_QEMU_Args_for_Tab_Info );
 		}
@@ -7475,8 +7491,12 @@ QStringList Virtual_Machine::Build_Native_Device_Args( VM_Native_Storage_Device 
 	// Discard
 	if( device.Use_Discard() )
 	{
-	        if( device.Get_Discard() ) opt << "discard=unmap";
-	        else opt << "discard=ignore";
+		// Discard is meaningful for writable block media; skip it for CD-ROM.
+		if( !(device.Use_Media() && device.Get_Media() == VM::DM_CD_ROM) )
+		{
+			if( device.Get_Discard() ) opt << "discard=unmap";
+			else opt << "discard=ignore";
+		}
 	}
 
 	// Create complete drive string
