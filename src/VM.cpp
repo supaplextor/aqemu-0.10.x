@@ -5664,22 +5664,20 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	if( Audio_Card.Audio_HDA && Current_Emulator_Devices.Audio_Card_List.Audio_HDA ) audio_list << "hda";
 	if( Audio_Card.Audio_cs4231a && Current_Emulator_Devices.Audio_Card_List.Audio_cs4231a ) audio_list << "cs4231a";
 	
-	if( audio_list.count() > 0 )
+	for( int ax = 0; ax < audio_list.count(); ++ax )
 	{
-		Args << "-soundhw";
-		
-		QString all_cards = "";
-		
-		for( int ax = 0; ax < audio_list.count(); ++ax )
+		const QString &card = audio_list[ ax ];
+		if( card == "hda" )
 		{
-			// Next card end?
-			if( ax != audio_list.count()-1 )
-				all_cards += audio_list[ ax ] + ",";
-			else
-				all_cards += audio_list[ ax ];
+			Args << "-device" << "intel-hda";
+			Args << "-device" << "hda-duplex";
 		}
-		
-		Args << all_cards;
+		else if( card == "ac97" )
+			Args << "-device" << "AC97";
+		else if( card == "es1370" )
+			Args << "-device" << "ES1370";
+		else
+			Args << "-device" << card;
 	}
 	
 	// Machine Type
