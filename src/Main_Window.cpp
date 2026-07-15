@@ -895,8 +895,10 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
     {
         return false;
     }
-	tmp_vm->Set_SMP_CPU_Count( ui.CB_CPU_Count->currentText().toInt() );
-    tmp_vm->Set_SMP( SMP_Settings->Get_Values() );
+	VM::SMP_Options smp_opts = SMP_Settings->Get_Values();
+	// Persist CPU count from the main field and keep advanced SMP options.
+	smp_opts.SMP_Count = ui.CB_CPU_Count->currentText().toInt();
+	tmp_vm->Set_SMP( smp_opts );
 
 	// Keyboard Layout
 	if( ui.CB_Keyboard_Layout->currentIndex() == 0 ) // Default
@@ -4207,14 +4209,29 @@ void Main_Window::Computer_Type_Changed()
 		Old_Network_Settings_Widget->Set_Network_Card_Models( curComp.Network_Card_List );
 
 	// Audio
-	ui.CH_sb16->setEnabled( curComp.Audio_Card_List.Audio_sb16 );
-	ui.CH_es1370->setEnabled( curComp.Audio_Card_List.Audio_es1370 );
-	ui.CH_Adlib->setEnabled( curComp.Audio_Card_List.Audio_Adlib );
-	ui.CH_AC97->setEnabled( curComp.Audio_Card_List.Audio_AC97 );
-	ui.CH_GUS->setEnabled( curComp.Audio_Card_List.Audio_GUS );
-	ui.CH_PCSPK->setEnabled( curComp.Audio_Card_List.Audio_PC_Speaker );
-	ui.CH_HDA->setEnabled( curComp.Audio_Card_List.Audio_HDA );
-	ui.CH_cs4231a->setEnabled( curComp.Audio_Card_List.Audio_cs4231a );
+	if( curComp.Audio_Card_List.isEnabled() )
+	{
+		ui.CH_sb16->setEnabled( curComp.Audio_Card_List.Audio_sb16 );
+		ui.CH_es1370->setEnabled( curComp.Audio_Card_List.Audio_es1370 );
+		ui.CH_Adlib->setEnabled( curComp.Audio_Card_List.Audio_Adlib );
+		ui.CH_AC97->setEnabled( curComp.Audio_Card_List.Audio_AC97 );
+		ui.CH_GUS->setEnabled( curComp.Audio_Card_List.Audio_GUS );
+		ui.CH_PCSPK->setEnabled( curComp.Audio_Card_List.Audio_PC_Speaker );
+		ui.CH_HDA->setEnabled( curComp.Audio_Card_List.Audio_HDA );
+		ui.CH_cs4231a->setEnabled( curComp.Audio_Card_List.Audio_cs4231a );
+	}
+	else
+	{
+		// Keep guest audio hardware selectable when capability probing is unknown.
+		ui.CH_sb16->setEnabled( true );
+		ui.CH_es1370->setEnabled( true );
+		ui.CH_Adlib->setEnabled( true );
+		ui.CH_AC97->setEnabled( true );
+		ui.CH_GUS->setEnabled( true );
+		ui.CH_PCSPK->setEnabled( true );
+		ui.CH_HDA->setEnabled( true );
+		ui.CH_cs4231a->setEnabled( true );
+	}
 
     ui_arch.CB_CPU_Type->blockSignals(false);
     ui_arch.CB_Machine_Type->blockSignals(false);

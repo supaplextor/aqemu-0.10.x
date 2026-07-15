@@ -5654,15 +5654,22 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	
 	// Audio
 	QStringList audio_list;
+	const bool audio_caps_known = Current_Emulator_Devices.Audio_Card_List.isEnabled();
+	const bool ac97_selected = Audio_Card.Audio_AC97 &&
+		(Current_Emulator_Devices.Audio_Card_List.Audio_AC97 || !audio_caps_known);
+	const bool hda_selected = Audio_Card.Audio_HDA &&
+		(Current_Emulator_Devices.Audio_Card_List.Audio_HDA || !audio_caps_known);
+	const bool use_modern_ac97 = ac97_selected && Current_Emulator_Devices.PSO_Device;
+	const bool use_modern_hda = hda_selected && Current_Emulator_Devices.PSO_Device;
 	
-	if( Audio_Card.Audio_sb16 &&  Current_Emulator_Devices.Audio_Card_List.Audio_sb16 ) audio_list << "sb16";
-	if( Audio_Card.Audio_es1370 && Current_Emulator_Devices.Audio_Card_List.Audio_es1370 ) audio_list << "es1370";
-	if( Audio_Card.Audio_Adlib && Current_Emulator_Devices.Audio_Card_List.Audio_Adlib ) audio_list << "adlib";
-	if( Audio_Card.Audio_PC_Speaker && Current_Emulator_Devices.Audio_Card_List.Audio_PC_Speaker ) audio_list << "pcspk";
-	if( Audio_Card.Audio_GUS && Current_Emulator_Devices.Audio_Card_List.Audio_GUS ) audio_list << "gus";
-	if( Audio_Card.Audio_AC97 && Current_Emulator_Devices.Audio_Card_List.Audio_AC97 ) audio_list << "ac97";
-	if( Audio_Card.Audio_HDA && Current_Emulator_Devices.Audio_Card_List.Audio_HDA ) audio_list << "hda";
-	if( Audio_Card.Audio_cs4231a && Current_Emulator_Devices.Audio_Card_List.Audio_cs4231a ) audio_list << "cs4231a";
+	if( Audio_Card.Audio_sb16 &&  (Current_Emulator_Devices.Audio_Card_List.Audio_sb16 || !audio_caps_known) ) audio_list << "sb16";
+	if( Audio_Card.Audio_es1370 && (Current_Emulator_Devices.Audio_Card_List.Audio_es1370 || !audio_caps_known) ) audio_list << "es1370";
+	if( Audio_Card.Audio_Adlib && (Current_Emulator_Devices.Audio_Card_List.Audio_Adlib || !audio_caps_known) ) audio_list << "adlib";
+	if( Audio_Card.Audio_PC_Speaker && (Current_Emulator_Devices.Audio_Card_List.Audio_PC_Speaker || !audio_caps_known) ) audio_list << "pcspk";
+	if( Audio_Card.Audio_GUS && (Current_Emulator_Devices.Audio_Card_List.Audio_GUS || !audio_caps_known) ) audio_list << "gus";
+	if( ac97_selected && !use_modern_ac97 ) audio_list << "ac97";
+	if( hda_selected && !use_modern_hda ) audio_list << "hda";
+	if( Audio_Card.Audio_cs4231a && (Current_Emulator_Devices.Audio_Card_List.Audio_cs4231a || !audio_caps_known) ) audio_list << "cs4231a";
 	
 	for( int ax = 0; ax < audio_list.count(); ++ax )
 	{
@@ -5678,6 +5685,30 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			Args << "-device" << "ES1370";
 		else
 			Args << "-device" << card;
+	}
+
+	if( use_modern_ac97 || use_modern_hda )
+	{
+		QString audio_backend = Settings.value( "QEMU_AUDIO/QEMU_AUDIO_DRV", "alsa" ).toString();
+		if( audio_backend.isEmpty() )
+			audio_backend = "alsa";
+		Args << "-audiodev" << audio_backend + ",id=snd0";
+	}
+
+	if( use_modern_ac97 )
+	{
+		Args << "-device" << "ac97,audiodev=snd0";
+	}
+
+	if( use_modern_hda )
+	{
+		// Q35 prefers ich9-intel-hda, while i440fx works with intel-hda.
+		if( Machine_Type.startsWith("pc-q35") )
+			Args << "-device" << "ich9-intel-hda";
+		else
+			Args << "-device" << "intel-hda";
+
+		Args << "-device" << "hda-duplex,audiodev=snd0";
 	}
 	
 	// Machine Type
