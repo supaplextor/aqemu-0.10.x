@@ -2176,6 +2176,17 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 		}
 	}
 	while( ! tmp.isNull() );
+
+	// Modern QEMU versions may not expose audio cards via "-soundhw ?".
+	// Fall back to the default per-target audio list instead of disabling all
+	// guest audio hardware checkboxes in the UI.
+	if( !tmp_dev.Audio_Card_List.isEnabled() )
+	{
+		tmp_dev.Audio_Card_List = default_device.Audio_Card_List;
+		AQWarning( "Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,"
+				   "VM::Emulator_Version version, const QString &internalName )",
+				   QString("Cannot get audio cards info from emulator \"%1\". Use default list").arg(path) );
+	}
 	
 	// If -soundhw is not supported (newer QEMU removed it), detect audio devices via -device ?
 	if( !tmp_dev.Audio_Card_List.isEnabled() )
