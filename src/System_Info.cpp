@@ -2177,6 +2177,20 @@ Available_Devices System_Info::Get_Emulator_Info( const QString &path, bool *ok,
 	}
 	while( ! tmp.isNull() );
 	
+	// If -soundhw is not supported (newer QEMU removed it), detect audio devices via -device ?
+	if( !tmp_dev.Audio_Card_List.isEnabled() )
+	{
+		QString devListStr = Get_Emulator_Output( path, QStringList() << "-device" << "?" );
+		if( devListStr.contains("\"sb16\"") ) tmp_dev.Audio_Card_List.Audio_sb16 = true;
+		if( devListStr.contains("\"ES1370\"") ) tmp_dev.Audio_Card_List.Audio_es1370 = true;
+		if( devListStr.contains("\"adlib\"") ) tmp_dev.Audio_Card_List.Audio_Adlib = true;
+		if( devListStr.contains("\"pcspk\"") ) tmp_dev.Audio_Card_List.Audio_PC_Speaker = true;
+		if( devListStr.contains("\"gus\"") ) tmp_dev.Audio_Card_List.Audio_GUS = true;
+		if( devListStr.contains("\"AC97\"") ) tmp_dev.Audio_Card_List.Audio_AC97 = true;
+		if( devListStr.contains("\"intel-hda\"") ) tmp_dev.Audio_Card_List.Audio_HDA = true;
+		if( devListStr.contains("\"cs4231a\"") ) tmp_dev.Audio_Card_List.Audio_cs4231a = true;
+	}
+	
 	// Get Network Card Models
 	args_list.clear();
 	args_list << "-net" << "nic,model=?";
