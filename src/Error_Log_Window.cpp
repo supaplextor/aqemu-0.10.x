@@ -50,7 +50,9 @@ void Error_Log_Window::Add_to_Log( const QString& err_str )
     last_error_is_deprecated_option = err_str.contains("option is deprecated");
 
     //deprecated options shouldn't block an actual error from being shown
-    if ( err_str.contains("invalid") || err_str.contains("could not") )
+    if ( err_str.contains("invalid") || err_str.contains("could not") ||
+         err_str.contains("failed", Qt::CaseInsensitive) ||
+         err_str.contains("error", Qt::CaseInsensitive) )
     {
         last_error_is_deprecated_option = false;
     }
