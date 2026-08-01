@@ -36,6 +36,7 @@
 #include <QSet>
 #include <QStandardPaths>
 #include <QThread>
+#include <QtGlobal>
 
 #ifdef Q_OS_WIN32
 #include <windows.h>
@@ -99,6 +100,11 @@ QStringList extractImagePathsFromArgs( const QStringList &args )
 	}
 
 	return image_paths.values();
+}
+
+bool Is_SMP_Debug_Enabled()
+{
+	return !qEnvironmentVariableIsEmpty( "AQEMU_DEBUG_SMP" );
 }
 
 QStringList extractPathsFromLockError( const QString &err )
@@ -1219,6 +1225,19 @@ bool Virtual_Machine::Create_VM_File( const QString &file_name, bool template_mo
 	VM_Element.appendChild( Dom_Element );
 	Dom_Text = New_Dom_Document.createTextNode( QString::number(SMP.SMP_MaxCPUs) );
 	Dom_Element.appendChild( Dom_Text );
+
+	if( Is_SMP_Debug_Enabled() )
+	{
+		AQLaunch_Trace( "smp-save-xml",
+			QString("xml=%1 name=%2 smp=%3/%4/%5/%6/%7")
+				.arg(Get_VM_XML_File_Path())
+				.arg(Machine_Name)
+				.arg(SMP.SMP_Count)
+				.arg(SMP.SMP_Cores)
+				.arg(SMP.SMP_Threads)
+				.arg(SMP.SMP_Sockets)
+				.arg(SMP.SMP_MaxCPUs) );
+	}
 	
 	// Keyboard Layout
 	Dom_Element = New_Dom_Document.createElement( "Keyboard_Layout" );
@@ -3923,6 +3942,19 @@ bool Virtual_Machine::Load_VM( const QString &file_name )
 			SMP.SMP_Threads = Child_Element.firstChildElement("SMP_Threads").text().toInt();
 			SMP.SMP_Sockets = Child_Element.firstChildElement("SMP_Sockets").text().toInt();
 			SMP.SMP_MaxCPUs = Child_Element.firstChildElement("SMP_MaxCPUs").text().toInt();
+			if( Is_SMP_Debug_Enabled() )
+			{
+				AQLaunch_Trace( "smp-load-xml",
+					QString("xml=%1 name=%2 smp=%3/%4/%5/%6/%7 raw_count='%8'")
+						.arg(file_name)
+						.arg(Machine_Name)
+						.arg(SMP.SMP_Count)
+						.arg(SMP.SMP_Cores)
+						.arg(SMP.SMP_Threads)
+						.arg(SMP.SMP_Sockets)
+						.arg(SMP.SMP_MaxCPUs)
+						.arg(Child_Element.firstChildElement("SMP_CPU_Count").text()) );
+			}
 			
 			// Keyboard Layout
 			Keyboard_Layout = Child_Element.firstChildElement("Keyboard_Layout").text();

@@ -30,10 +30,13 @@
 #include <QTextTableCell>
 #include <QUrl>
 #include <QHeaderView>
+#include <QEventLoop>
+#include <QTimer>
 #include <QValidator>
 #include <QPainter>
 #include <QStandardItem>
 #include <QSysInfo>
+#include <QtGlobal>
 #include <QtDBus>
 
 #include <memory>
@@ -118,6 +121,68 @@ bool Is_Native_Computer_Type( const QString &qemu_name )
         return qemu_name == "qemu-system-loongarch64";
 
     return false;
+}
+
+bool Is_SMP_Debug_Enabled()
+{
+	return !qEnvironmentVariableIsEmpty( "AQEMU_DEBUG_SMP" );
+}
+
+QStringList Parse_Removable_CD_Device_Names( const QString &info_block_text )
+{
+	QStringList ret;
+	QStringList lines = info_block_text.split( '\n', Qt::SkipEmptyParts );
+
+	for( int ix = 0; ix < lines.count(); ++ix )
+	{
+		const QString line = lines[ix].trimmed();
+		if( line.isEmpty() ) continue;
+
+		QStringList parts = line.split( ' ', Qt::SkipEmptyParts );
+		if( parts.count() < 2 ) continue;
+
+		if( parts[1] != "removable=1" ) continue;
+
+		QString dev_name = parts[0];
+		if( dev_name.endsWith(':') )
+			dev_name.chop( 1 );
+
+		if( dev_name.contains("-cd") )
+			ret << dev_name;
+	}
+
+	return ret;
+}
+
+QString Resolve_CD_Monitor_Name( Virtual_Machine *vm, int cd_idx )
+{
+	if( vm == NULL ) return "";
+
+	QEventLoop loop;
+	QTimer timeout;
+	timeout.setSingleShot( true );
+
+	QObject::connect( vm, SIGNAL(Ready_Removable_Devices_List()), &loop, SLOT(quit()) );
+	QObject::connect( &timeout, SIGNAL(timeout()), &loop, SLOT(quit()) );
+
+	timeout.start( 3000 );
+	vm->Update_Removable_Devices_List();
+	loop.exec();
+
+	QObject::disconnect( vm, SIGNAL(Ready_Removable_Devices_List()), &loop, SLOT(quit()) );
+	QObject::disconnect( &timeout, SIGNAL(timeout()), &loop, SLOT(quit()) );
+
+	const QStringList names = Parse_Removable_CD_Device_Names( vm->Get_Removable_Devices_List() );
+	if( cd_idx >= 0 && cd_idx < names.count() )
+		return names[cd_idx];
+
+	// Fallback to legacy static IDE mapping for older monitor outputs.
+	static const char *legacy_names[] = { "ide1-cd0", "ide1-cd1", "ide2-cd0", "ide2-cd1" };
+	const int legacy_count = static_cast<int>( sizeof(legacy_names) / sizeof(legacy_names[0]) );
+	if( cd_idx >= 0 && cd_idx < legacy_count )
+		return QString( legacy_names[cd_idx] );
+
+	return "";
 }
 }
 
@@ -899,6 +964,19 @@ bool Main_Window::Create_VM_From_Ui( Virtual_Machine *tmp_vm, Virtual_Machine *o
 	// Persist CPU count from the main field and keep advanced SMP options.
 	smp_opts.SMP_Count = ui.CB_CPU_Count->currentText().toInt();
 	tmp_vm->Set_SMP( smp_opts );
+	if( Is_SMP_Debug_Enabled() )
+	{
+		AQLaunch_Trace( "smp-create-vm-from-ui",
+			QString("name=%1 ui_count=%2 smp=%3/%4/%5/%6/%7 max_supported=%8")
+				.arg(ui.Edit_Machine_Name->text())
+				.arg(ui.CB_CPU_Count->currentText())
+				.arg(smp_opts.SMP_Count)
+				.arg(smp_opts.SMP_Cores)
+				.arg(smp_opts.SMP_Threads)
+				.arg(smp_opts.SMP_Sockets)
+				.arg(smp_opts.SMP_MaxCPUs)
+				.arg(curComp.PSO_SMP_Count) );
+	}
 
 	// Keyboard Layout
 	if( ui.CB_Keyboard_Layout->currentIndex() == 0 ) // Default
@@ -1460,6 +1538,20 @@ void Main_Window::Update_VM_Ui(bool update_info_tab)
 	ui.CB_CPU_Count->setEditText( QString::number(tmp_vm->Get_SMP_CPU_Count()) );
     SMP_Settings->Set_Values( tmp_vm->Get_SMP(), curComp.PSO_SMP_Count, curComp.PSO_SMP_Cores,
 							 curComp.PSO_SMP_Threads, curComp.PSO_SMP_Sockets, curComp.PSO_SMP_MaxCPUs );
+	if( Is_SMP_Debug_Enabled() )
+	{
+		const VM::SMP_Options smp = tmp_vm->Get_SMP();
+		AQLaunch_Trace( "smp-update-ui",
+			QString("name=%1 shown_count=%2 smp=%3/%4/%5/%6/%7 max_supported=%8")
+				.arg(tmp_vm->Get_Machine_Name())
+				.arg(ui.CB_CPU_Count->currentText())
+				.arg(smp.SMP_Count)
+				.arg(smp.SMP_Cores)
+				.arg(smp.SMP_Threads)
+				.arg(smp.SMP_Sockets)
+				.arg(smp.SMP_MaxCPUs)
+				.arg(curComp.PSO_SMP_Count) );
+	}
 
 	// Keyboard Layout
 	int lang_index = ui.CB_Keyboard_Layout->findText( tmp_vm->Get_Keyboard_Layout() );
@@ -1782,6 +1874,7 @@ void Main_Window::Update_Disabled_Controls()
 	bool curMachineOk = false;
 	Available_Devices curComp = Get_Current_Machine_Devices( &curMachineOk );
 	if( ! curMachineOk ) return;
+	const QString previous_cpu_text = ui.CB_CPU_Count->currentText();
 
 	// Apply emulator
 
@@ -1794,6 +1887,7 @@ void Main_Window::Update_Disabled_Controls()
 	if( curComp.PSO_SMP_Count == 1 )
 	{
 		ui.CB_CPU_Count->addItem( QString::number(1) );
+		ui.CB_CPU_Count->setEditText( QString::number(1) );
 		ui.CB_CPU_Count->setEnabled( false );
 		ui.TB_Show_SMP_Settings_Window->setEnabled( false );
 	}
@@ -1807,10 +1901,24 @@ void Main_Window::Update_Disabled_Controls()
 
 		ui.CB_CPU_Count->setEnabled( true );
 		ui.TB_Show_SMP_Settings_Window->setEnabled( true );
+
+		bool prev_ok = false;
+		const int previous_cpu_count = previous_cpu_text.toInt( &prev_ok );
+		if( prev_ok && previous_cpu_count >= 1 && previous_cpu_count <= curComp.PSO_SMP_Count )
+			ui.CB_CPU_Count->setEditText( QString::number(previous_cpu_count) );
 	}
 
 	connect( ui.CB_CPU_Count, SIGNAL(editTextChanged(const QString &)),
 			 this, SLOT(Validate_CPU_Count(const QString&)) );
+
+	if( Is_SMP_Debug_Enabled() )
+	{
+		AQLaunch_Trace( "smp-update-controls",
+			QString("max_supported=%1 current_text=%2 enabled=%3")
+				.arg(curComp.PSO_SMP_Count)
+				.arg(ui.CB_CPU_Count->currentText())
+				.arg(ui.CB_CPU_Count->isEnabled() ? "true" : "false") );
+	}
 	/*
 	SMP_Settings
 
@@ -2338,20 +2446,19 @@ void Main_Window::on_CD_ROM_Change_Requested( int cdIdx, const VM_Storage_Device
 	VM::VM_State state = cur_vm->Get_State();
 	if( state != VM::VMS_Running && state != VM::VMS_Pause ) return;
 
-	// Map CD-ROM index to QEMU monitor device name.
-	// The primary CD-ROM (set via -cdrom) is always ide1-cd0 in QEMU (secondary master).
-	// Additional CD-ROMs added with -drive if=ide,media=cdrom are auto-assigned to the
-	// next available IDE slots: ide1-cd1 (secondary slave), ide2-cd0, ide2-cd1.
-	// This mapping covers VMs with up to four IDE CD-ROM drives.
-	static const char *monitorNames[] = { "ide1-cd0", "ide1-cd1", "ide2-cd0", "ide2-cd1" };
-	const int maxNames = static_cast<int>( sizeof(monitorNames) / sizeof(monitorNames[0]) );
-	if( cdIdx < 0 || cdIdx >= maxNames )
+	const QString monitorName = Resolve_CD_Monitor_Name( cur_vm, cdIdx );
+	if( monitorName.isEmpty() )
 	{
 		AQError( "void Main_Window::on_CD_ROM_Change_Requested()",
-				 QString("CD-ROM index %1 is out of range (max %2)").arg(cdIdx).arg(maxNames - 1) );
+				 QString("Cannot resolve monitor name for CD-ROM index %1").arg(cdIdx) );
 		return;
 	}
-	QString monitorName = QString( monitorNames[cdIdx] );
+	AQLaunch_Trace( "cdrom-hotchange",
+		QString("vm=%1 idx=%2 monitor=%3 file=%4")
+			.arg(cur_vm->Get_Machine_Name())
+			.arg(cdIdx)
+			.arg(monitorName)
+			.arg(newCd.Get_File_Name()) );
 
 	// Escape backslashes and double-quotes in the path for the QEMU monitor command.
 	QString escapedPath = newCd.Get_File_Name();
@@ -2365,6 +2472,13 @@ void Main_Window::on_CD_ROM_Change_Requested( int cdIdx, const VM_Storage_Device
 	{
 		QMetaObject::invokeMethod( cur_vm, "Execute_Emu_Ctl_Command", Qt::DirectConnection,
 								   Q_ARG(QString, "change " + monitorName + " \"" + escapedPath + "\"") );
+
+		// Legacy alias fallback for some monitor setups where only "cdrom" is accepted.
+		if( cdIdx == 0 && monitorName != "cdrom" )
+		{
+			QMetaObject::invokeMethod( cur_vm, "Execute_Emu_Ctl_Command", Qt::DirectConnection,
+							   Q_ARG(QString, "change cdrom \"" + escapedPath + "\"") );
+		}
 	}
 
 	// Persist the ISO change to the VM config so the new media survives a restart.
@@ -4572,10 +4686,28 @@ bool Main_Window::Validate_CPU_Count( const QString &text )
         if( SMP_Settings->Get_Values().SMP_Count != ui.CB_CPU_Count->currentText().toInt() )
             SMP_Settings->Set_SMP_Count( cpuCountTmp );
 
+		if( Is_SMP_Debug_Enabled() )
+		{
+			AQLaunch_Trace( "smp-validate-ok",
+				QString("input=%1 parsed=%2 max_supported=%3")
+					.arg(text)
+					.arg(cpuCountTmp)
+					.arg(tmpDev.PSO_SMP_Count) );
+		}
+
 		return true;
 	}
 	else
 	{
+		if( Is_SMP_Debug_Enabled() )
+		{
+			AQLaunch_Trace( "smp-validate-fail",
+				QString("input=%1 parsed=%2 max_supported=%3")
+					.arg(text)
+					.arg(cpuCountTmp)
+					.arg(tmpDev.PSO_SMP_Count) );
+		}
+
 		AQGraphic_Warning( tr("Warning"), tr("CPU count > max CPU count for this emulator!") );
 		return false;
 	}
