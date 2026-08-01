@@ -9973,13 +9973,24 @@ void Virtual_Machine::QEMU_Finished( int exitCode, QProcess::ExitStatus exitStat
     if (exitStatus == QProcess::CrashExit)
 	{
 		AQError( "QEMU Crashed!", "QEMU Crashed!" );
+		QString remaining_stderr = QEMU_Process->readAllStandardError();
+		if ( !remaining_stderr.isEmpty() )
+			Show_QEMU_Error( remaining_stderr );
+		if ( Settings.value("No_Show_Error_Log_Forever", "no").toString() != "yes" )
+			Show_Error_Log_Window();
 	}
     else if ( (exitCode != 0) ) 
     {
-        QString error = QEMU_Process->readAll();
+        QString stderr_output = QEMU_Process->readAllStandardError();
+        QString stdout_output = QEMU_Process->readAllStandardOutput();
+        QString error = stderr_output.isEmpty() ? stdout_output : stderr_output;
         AQError( "QEMU return value != 0", error );
-
-        Show_QEMU_Error( error );
+        if ( !error.isEmpty() )
+            Show_QEMU_Error( error );
+        // Force-show the window when QEMU exits with an error so fatal errors
+        // (e.g. "bridge helper failed") are never silently suppressed
+        if ( Settings.value("No_Show_Error_Log_Forever", "no").toString() != "yes" )
+            Show_Error_Log_Window();
     }
 	else
 	{
