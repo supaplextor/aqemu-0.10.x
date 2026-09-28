@@ -5850,9 +5850,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			if( QFile::exists(FD0.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
 				if( Build_QEMU_Args_for_Script_Mode )
-					StorageArgs << "-fda" << "\"" + FD0.Get_File_Name() + "\"";
+					StorageArgs << "-drive" << QString("file=\"%1\",if=floppy,format=raw").arg(FD0.Get_File_Name());
 				else
-					StorageArgs << "-fda" << FD0.Get_File_Name();
+					StorageArgs << "-drive" << QString("file=%1,if=floppy,format=raw").arg(FD0.Get_File_Name());
 			}
 			else
 			{
@@ -5881,9 +5881,9 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			if( QFile::exists(FD1.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
 				if( Build_QEMU_Args_for_Script_Mode )
-					StorageArgs << "-fdb" << "\"" + FD1.Get_File_Name() + "\"";
+					StorageArgs << "-drive" << QString("file=\"%1\",if=floppy,format=raw").arg(FD1.Get_File_Name());
 				else
-					StorageArgs << "-fdb" << FD1.Get_File_Name();
+					StorageArgs << "-drive" << QString("file=%1,if=floppy,format=raw").arg(FD1.Get_File_Name());
             }
 			else
 			{
