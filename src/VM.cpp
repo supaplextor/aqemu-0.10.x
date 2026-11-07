@@ -6020,14 +6020,17 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// CD-ROMs: first uses -cdrom (legacy), additional use -drive if=ide,media=cdrom
 	// Placed after HDA/HDB/HDC/HDD so the cdrom drive is visible in the guest.
 	int next_auto_ide_cd_index = 2;
+	bool primary_cdrom_added = false;
 	for( int cdIdx = 0; cdIdx < CD_ROM_List.count(); ++cdIdx )
 	{
 		const VM_Storage_Device &cd = CD_ROM_List[cdIdx];
 		if( !cd.Get_Enabled() ) continue;
+		const bool is_primary_cdrom = !primary_cdrom_added;
+		primary_cdrom_added = true;
 
 		if( cd.Get_Native_Mode() )
 		{
-			if( cdIdx == 0 )
+			if( is_primary_cdrom )
 			{
 				// Keep the first IDE optical device on QEMU's legacy -cdrom path.
 				// This yields a stable ide1-cd0 device and avoids index collisions.
@@ -6064,7 +6067,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		{
 			if( QFile::exists(cd.Get_File_Name()) || Build_QEMU_Args_for_Tab_Info )
 			{
-				if( cdIdx == 0 )
+				if( is_primary_cdrom )
 				{
 					// Primary CD: use legacy -cdrom flag
 					if( Build_QEMU_Args_for_Script_Mode )
