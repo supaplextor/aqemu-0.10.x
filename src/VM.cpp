@@ -6136,6 +6136,16 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 	// Boot Device
 	if( Current_Emulator_Devices.PSO_Boot_Order )
 	{
+		bool cdrom_available = false;
+		for( int cdIdx = 0; cdIdx < CD_ROM_List.count(); ++cdIdx )
+		{
+			if( CD_ROM_List[cdIdx].Get_Enabled() )
+			{
+				cdrom_available = true;
+				break;
+			}
+		}
+
 		int bootDevCount = 0;
 		int onceBootDeviceIndex = -1;
 		for( int ix = 0; ix < Boot_Order_List.count(); ix++ )
@@ -6157,7 +6167,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 					break;
 
 				case VM::Boot_From_CDROM:
-					boot_device_available = !CD_ROM_List.isEmpty() && CD_ROM_List.first().Get_Enabled();
+					boot_device_available = cdrom_available;
 					break;
 
 				case VM::Boot_From_Network1:
@@ -6200,7 +6210,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 						break;
 
 					case VM::Boot_From_CDROM:
-						boot_device_available = !CD_ROM_List.isEmpty() && CD_ROM_List.first().Get_Enabled();
+						boot_device_available = cdrom_available;
 						break;
 
 					case VM::Boot_From_Network1:
