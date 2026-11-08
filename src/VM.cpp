@@ -10629,12 +10629,14 @@ QString Virtual_Machine::GenerateHTMLInfoText(int info_mode)
             if( soph.either ( Settings.value("Info/Show_CD", "yes").toString() == "yes" ) )
             {
                 const QList<VM_Storage_Device> &cdList = Get_CD_ROM_List();
+                int cdNumber = 0;
                 for( int cdIdx = 0; cdIdx < cdList.count(); ++cdIdx )
                 {
                     if( !cdList[cdIdx].Get_Enabled() ) continue;
+                    ++cdNumber;
                     cell = table->cellAt( table->rows()-1, 1 );
                     cell_cursor = cell.firstCursorPosition();
-                    cell_cursor.insertText( cdIdx == 0 ? tr("CD/DVD-ROM:") : tr("CD/DVD-ROM %1:").arg(cdIdx+1), format );
+                    cell_cursor.insertText( cdNumber == 1 ? tr("CD/DVD-ROM:") : tr("CD/DVD-ROM %1:").arg(cdNumber), format );
 
                     cell = table->cellAt( table->rows()-1, 2 );
                     cell_cursor = cell.firstCursorPosition();
