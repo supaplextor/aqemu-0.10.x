@@ -31,9 +31,17 @@
 #include "Create_HDD_Image_Window.h"
 #include "System_Info.h"
 
-QString Device_Manager_Widget::CD_ROM_Label( int cdIdx, const QString &fileName )
+QString Device_Manager_Widget::CD_ROM_Label( const QList<VM_Storage_Device> &cdList,
+											 int cdIdx, const QString &fileName )
 {
-	return QObject::tr("CD-ROM") + (cdIdx > 0 ? QString(" %1").arg(cdIdx + 1) : "")
+	int cdNumber = 0;
+	for( int idx = 0; idx <= cdIdx && idx < cdList.count(); ++idx )
+	{
+		if( cdList[idx].Get_Enabled() )
+			++cdNumber;
+	}
+
+	return QObject::tr("CD-ROM") + (cdNumber > 1 ? QString(" %1").arg(cdNumber) : "")
 		+ " (" + fileName + ")";
 }
 
@@ -653,7 +661,7 @@ void Device_Manager_Widget::on_actionAdd_CD_ROM_triggered()
 		CD_ROM_List.append( cd );
 
 		QListWidgetItem *cdit = new QListWidgetItem( QIcon(":/cdrom.png"),
-													 CD_ROM_Label( cdIdx, dev_name ), ui.Devices_List );
+													 CD_ROM_Label( CD_ROM_List, cdIdx, dev_name ), ui.Devices_List );
 		cdit->setData( 512, QString("cd%1").arg(cdIdx) );
 
 		ui.Devices_List->addItem( cdit );
@@ -824,7 +832,7 @@ void Device_Manager_Widget::on_actionProperties_triggered()
 			{
 				CD_ROM_List[cdIdx] = pw->Get_CD_ROM();
 				ui.Devices_List->currentItem()->setText(
-					CD_ROM_Label( cdIdx, CD_ROM_List[cdIdx].Get_File_Name() ) );
+					CD_ROM_Label( CD_ROM_List, cdIdx, CD_ROM_List[cdIdx].Get_File_Name() ) );
 				
 				emit Device_Changed();
 				
@@ -1007,7 +1015,7 @@ void Device_Manager_Widget::on_actionDelete_triggered()
 						if( newIdx < CD_ROM_List.count() )
 						{
 							ui.Devices_List->item(ix)->setText(
-								CD_ROM_Label( newIdx, CD_ROM_List[newIdx].Get_File_Name() ) );
+								CD_ROM_Label( CD_ROM_List, newIdx, CD_ROM_List[newIdx].Get_File_Name() ) );
 						}
 					}
 				}
@@ -1223,7 +1231,7 @@ void Device_Manager_Widget::Update_Icons()
 	{
 		if( !CD_ROM_List[cdIdx].Get_Enabled() ) continue;
 		QListWidgetItem *cdit = new QListWidgetItem( QIcon(":/cdrom.png"),
-			CD_ROM_Label( cdIdx, CD_ROM_List[cdIdx].Get_File_Name() ), ui.Devices_List );
+			CD_ROM_Label( CD_ROM_List, cdIdx, CD_ROM_List[cdIdx].Get_File_Name() ), ui.Devices_List );
 		cdit->setData( 512, QString("cd%1").arg(cdIdx) );
 		ui.Devices_List->addItem( cdit );
 	}
