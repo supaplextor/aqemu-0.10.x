@@ -632,6 +632,18 @@ class VM_Storage_Device
 		VM_Native_Storage_Device Native_Device;
 };
 
+inline int CD_ROM_Display_Number( const QList<VM_Storage_Device> &cdList, int cdIdx )
+{
+	int cdNumber = 0;
+	for( int idx = 0; idx <= cdIdx && idx < cdList.count(); ++idx )
+	{
+		if( cdList[idx].Get_Enabled() )
+			++cdNumber;
+	}
+
+	return cdNumber;
+}
+
 
 // Virtual Machine Shared Folder (shared between host and guest)
 class VM_Shared_Folder
