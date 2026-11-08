@@ -95,6 +95,32 @@ sudo make -j16 install
 
 ---
 
+## Uninstall on Linux (source installs)
+
+Use the matching method for how you installed AQEMU.
+
+### Meson/Ninja uninstall
+
+From the repository root:
+
+```bash
+sudo ninja -C builddir uninstall
+```
+
+If your Meson/Ninja setup does not provide the `uninstall` target, reinstall into a staging directory (`DESTDIR`) or remove installed files manually from your install prefix.
+
+### CMake uninstall
+
+CMake does not provide a built-in uninstall target by default. If `install_manifest.txt` exists in your CMake build directory/repository root, remove the installed files with:
+
+```bash
+sudo xargs -d '\n' rm -f < install_manifest.txt
+```
+
+If you installed to a custom prefix (for example `/usr/local`), also remove any now-empty AQEMU-specific directories under that prefix if needed.
+
+---
+
 ## Clean rebuild examples
 
 Meson:

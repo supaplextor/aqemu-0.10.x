@@ -6017,7 +6017,7 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		}
 	}
 	
-	// CD-ROMs: first uses -cdrom (legacy), additional use -drive if=ide,media=cdrom
+	// CD-ROMs: first uses -drive file=...,media=cdrom,index=2, additional use -drive.
 	// Placed after HDA/HDB/HDC/HDD so the cdrom drive is visible in the guest.
 	int next_auto_ide_cd_index = 2;
 	bool primary_cdrom_added = false;
@@ -6032,12 +6032,12 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 		{
 			if( is_primary_cdrom )
 			{
-				// Keep the first IDE optical device on QEMU's legacy -cdrom path.
-				// This yields a stable ide1-cd0 device and avoids index collisions.
-				if( Build_QEMU_Args_for_Script_Mode )
-					StorageArgs << "-cdrom" << "\"" + cd.Get_File_Name() + "\"";
-				else
-					StorageArgs << "-cdrom" << cd.Get_File_Name();
+				QString primaryCdArg = "file=";
+				primaryCdArg += Build_QEMU_Args_for_Script_Mode
+					? "\"" + cd.Get_File_Name() + "\""
+					: cd.Get_File_Name();
+				primaryCdArg += ",media=cdrom,index=2";
+				StorageArgs << "-drive" << primaryCdArg;
 
 				next_auto_ide_cd_index = 3;
 				continue;
@@ -6069,19 +6069,22 @@ QStringList Virtual_Machine::Build_QEMU_Args()
 			{
 				if( is_primary_cdrom )
 				{
-					// Primary CD: use legacy -cdrom flag
-					if( Build_QEMU_Args_for_Script_Mode )
-						StorageArgs << "-cdrom" << "\"" + cd.Get_File_Name() + "\"";
-					else
-						StorageArgs << "-cdrom" << cd.Get_File_Name();
+					QString primaryCdArg = "file=";
+					primaryCdArg += Build_QEMU_Args_for_Script_Mode
+						? "\"" + cd.Get_File_Name() + "\""
+						: cd.Get_File_Name();
+					primaryCdArg += ",media=cdrom,index=2";
+					StorageArgs << "-drive" << primaryCdArg;
+					next_auto_ide_cd_index = 3;
 				}
 				else
 				{
-					// Additional CDs: use -drive if=ide,media=cdrom
-					QString driveArg = "if=ide,media=cdrom,file=";
+					QString driveArg = "file=";
 					driveArg += Build_QEMU_Args_for_Script_Mode
 						? "\"" + cd.Get_File_Name() + "\""
 						: cd.Get_File_Name();
+					driveArg += ",media=cdrom,index=" + QString::number(next_auto_ide_cd_index);
+					next_auto_ide_cd_index++;
 					StorageArgs << "-drive" << driveArg;
 				}
 			}
