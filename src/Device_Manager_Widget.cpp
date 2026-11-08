@@ -34,12 +34,7 @@
 QString Device_Manager_Widget::CD_ROM_Label( const QList<VM_Storage_Device> &cdList,
 											 int cdIdx, const QString &fileName )
 {
-	int cdNumber = 0;
-	for( int idx = 0; idx <= cdIdx && idx < cdList.count(); ++idx )
-	{
-		if( cdList[idx].Get_Enabled() )
-			++cdNumber;
-	}
+	const int cdNumber = CD_ROM_Display_Number( cdList, cdIdx );
 
 	return QObject::tr("CD-ROM") + (cdNumber > 1 ? QString(" %1").arg(cdNumber) : "")
 		+ " (" + fileName + ")";
