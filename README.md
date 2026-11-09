@@ -47,3 +47,25 @@ cmake --install build
 ```
 
 This installs `aqemu.exe` into `dist/bin` and data files into `dist/share/aqemu`.
+
+## CD-ROM boot troubleshooting
+
+On QEMU's default x86 PC machine, `-drive file="/path/to/image.iso",media=cdrom,index=2`
+attaches the image to the same IDE slot as `-cdrom "/path/to/image.iso"`.
+It works without a hard disk. `-boot order=d,menu=off` selects CD-ROM boot;
+changing to `-cdrom` or adding `if=ide` does not make an unbootable image bootable.
+
+If the guest reports no boot medium, verify the ISO's checksum against its
+publisher's checksum and check that it supports the VM's firmware. For example,
+with xorriso installed, inspect the optical boot catalog:
+
+```sh
+xorriso -indev "/path/to/image.iso" -report_el_torito plain
+```
+
+An EFI-only image needs UEFI firmware, not QEMU's default SeaBIOS. In AQEMU's
+Media tab, under special images, enable **Parallel flash code image (readonly)**
+with an OVMF code image and **Parallel flash vars image** with a writable,
+per-VM copy of the matching OVMF vars template. Firmware paths depend on the
+host distribution; do not use the shared vars template directly. Keep the
+CD-ROM enabled and selected in the boot order.
