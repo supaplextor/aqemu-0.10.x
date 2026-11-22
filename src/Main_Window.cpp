@@ -3100,8 +3100,11 @@ bool Main_Window::Boot_Is_Correct( Virtual_Machine *tmp_vm )
 					break;
 
 				case VM::Boot_From_CDROM:
-					if( !tmp_vm->Get_CD_ROM_List().isEmpty() && tmp_vm->Get_CD_ROM_List().first().Get_Enabled() )
-						return true;
+					for( const VM_Storage_Device &cd : tmp_vm->Get_CD_ROM_List() )
+					{
+						if( cd.Get_Enabled() )
+							return true;
+					}
 					break;
 
 				case VM::Boot_From_HDD:
